@@ -1,0 +1,22 @@
+# Default driving environment. Every value here equals the built-in default
+# (src/neurodrive/env/config.py); edit a copy to run an experiment.
+env:
+  track: beginner_oval
+  laps_to_finish: 1
+  max_episode_seconds: 90.0   # then the episode is truncated (time_limit)
+  perturb_start: true         # seeded start offsets of up to 1.5 m sideways and 5 degrees
+
+  sensors:
+    angles_deg: [-90, -60, -40, -20, 0, 20, 40, 60, 90]   # positive = right of heading
+    max_range: 50.0           # meters
+
+  observation:
+    route_features: false     # true appends 3 PRIVILEGED inputs (heading error, offset)
+
+  reward:
+    progress_per_meter: 0.1   # signed: driving backwards costs the same
+    lap_bonus: 10.0
+    crash_penalty: 10.0
+    stall_penalty: 10.0
+    stall_seconds: 5.0        # end the episode if progress over this window
+    stall_min_progress: 2.0   #   is below this many meters

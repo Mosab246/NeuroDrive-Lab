@@ -8,6 +8,7 @@ import numpy as np
 import pygame
 
 from neurodrive.sim import geometry as geo
+from neurodrive.sim.sensors import RayHits
 from neurodrive.sim.simulation import Simulation, Termination
 from neurodrive.sim.track import Track
 
@@ -152,3 +153,18 @@ class CarRenderer:
             # At whole-track zoom the car is only a few pixels long: ring it.
             center = corners.mean(axis=0)
             pygame.draw.circle(screen, CAR_CRASHED if crashed else CAR, center, 11, 1)
+
+
+RAY = (90, 200, 255)
+RAY_HIT = (255, 90, 120)
+
+
+def draw_rays(screen: pygame.Surface, camera: Camera, hits: RayHits, max_range: float) -> None:
+    """Draw what the car's distance sensors see: a line per ray, with a dot where it hits
+    a wall (no dot when the ray reaches its maximum range without hitting anything)."""
+    origin = camera.to_screen(hits.origin)[0]
+    ends = camera.to_screen(hits.endpoints())
+    for end, dist in zip(ends, hits.distances, strict=True):
+        pygame.draw.aaline(screen, RAY, origin, end)
+        if dist < max_range:
+            pygame.draw.circle(screen, RAY_HIT, end, 3)
