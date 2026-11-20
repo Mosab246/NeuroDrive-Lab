@@ -1,8 +1,15 @@
-"""The Phase 1 playground: drive the car yourself, or watch the scripted autopilot.
+"""The playground: drive the car yourself, or watch a baseline driver.
+
+Drivers (C cycles through them). None of these is machine learning yet:
+    keyboard          you
+    heuristic         hand-written rules using only the 11-number sensor observation
+    smoothed_random   random actions that drift smoothly
+    autopilot         pure pursuit along the centerline (scripted, privileged)
 
 Controls:
     Arrow keys / WASD   steer, throttle, brake
-    C                   switch driver: keyboard <-> autopilot (scripted, privileged)
+    C                   cycle driver
+    V                   show/hide the distance-sensor rays the agents "see"
     P                   pause / resume
     R                   reset to the start line
     + / -               simulation speed 0.25x .. 8x
@@ -18,13 +25,17 @@ import sys
 import numpy as np
 import pygame
 
+from neurodrive.agents.baselines import HeuristicController, SmoothedRandomController
 from neurodrive.agents.pure_pursuit import PurePursuitDriver
+from neurodrive.env.config import ObservationConfig, SensorConfig
+from neurodrive.env.observations import ObservationBuilder
 from neurodrive.sim.simulation import SimConfig, Simulation
 from neurodrive.sim.track import Track
 from neurodrive.ui import renderer as R
 from neurodrive.ui.clock import FixedStepClock
 
 PANEL_WIDTH = 300
+DRIVERS = ("keyboard", "heuristic", "smoothed_random", "autopilot")
 
 
 class KeyboardDriver:
@@ -85,9 +96,15 @@ class PlaygroundApp:
         self.follow_camera = False
         self.keyboard = KeyboardDriver()
         self.autopilot = PurePursuitDriver()
-        if controller not in ("keyboard", "autopilot"):
-            raise ValueError("controller must be 'keyboard' or 'autopilot'")
-        self.use_autopilot = controller == "autopilot"
+        sensors = SensorConfig()
+        self.observer = ObservationBuilder(self.sim, sensors, ObservationConfig())
+        self.heuristic = HeuristicController(angles_deg=sensors.angles_deg)
+        self.random_driver = SmoothedRandomController(seed=0)
+        if controller not in DRIVERS:
+            raise ValueError(f"driver must be one of {', '.join(DRIVERS)}")
+        self.driver_name = controller
+        self.show_rays = False
+        self.last_obs = self.observer.build()
         self.paused = False
         self.running = True
         self.frame_dt = frame_dt
@@ -118,13 +135,28 @@ class PlaygroundApp:
         return frames
 
     def _step(self) -> None:
-        if self.use_autopilot:
+        name = self.driver_name
+        if name == "autopilot":
             action = self.autopilot.act(self.sim)
+        elif name == "heuristic":
+            action = self.heuristic.act(self.last_obs)
+        elif name == "smoothed_random":
+            action = self.random_driver.act(self.last_obs)
         else:
             action = self.keyboard.act(pygame.key.get_pressed())
         self.last_action = action
         self.sim.step(action)
+        self.last_obs = self.observer.build()
         self.car_view.record(self.sim)
+
+    @property
+    def driver(self) -> object:
+        return {
+            "keyboard": self.keyboard,
+            "autopilot": self.autopilot,
+            "heuristic": self.heuristic,
+            "smoothed_random": self.random_driver,
+        }[self.driver_name]
 
     def _handle_events(self) -> None:
         for event in pygame.event.get():
@@ -139,7 +171,10 @@ class PlaygroundApp:
                 elif key == pygame.K_r:
                     self.reset()
                 elif key == pygame.K_c:
-                    self.use_autopilot = not self.use_autopilot
+                    i = DRIVERS.index(self.driver_name)
+                    self.driver_name = DRIVERS[(i + 1) % len(DRIVERS)]
+                elif key == pygame.K_v:
+                    self.show_rays = not self.show_rays
                 elif key == pygame.K_z:
                     self.follow_camera = not self.follow_camera
                 elif key == pygame.K_t:
@@ -154,12 +189,18 @@ class PlaygroundApp:
         self.clock.reset()
         self.car_view.clear_trail()
         self.last_action = np.zeros(2)
+        self.random_driver.reset()
+        self.last_obs = self.observer.build()
 
     # ------------------------------------------------------------------ drawing
     def _draw(self) -> None:
         self.screen.fill(R.GRASS)
         camera = self.track_view.camera(self.follow_camera, self.sim)
         self.track_view.draw(self.screen, camera)
+        if self.show_rays and self.observer.last_hits is not None:
+            R.draw_rays(
+                self.screen, camera, self.observer.last_hits, self.observer.sensor.max_range
+            )
         self.car_view.draw(self.screen, self.sim, camera)
         self._draw_panel()
         if self.sim.termination is not None:
@@ -181,12 +222,12 @@ class PlaygroundApp:
         sim = self.sim
         best = min(sim.lap_times) if sim.lap_times else None
         last = sim.lap_times[-1] if sim.lap_times else None
-        driver = self.autopilot if self.use_autopilot else self.keyboard
+        driver = self.driver
         steer, pedal = self.last_action
         rows: list[tuple[str, str] | None] = [
             ("track", sim.track.spec.name),
-            ("driver", driver.name),
-            ("type", driver.kind),
+            ("driver", getattr(driver, "name", "?")),
+            ("type", getattr(driver, "kind", "?")),
             None,
             ("speed", f"{sim.state.speed * 3.6:6.1f} km/h"),
             ("steering cmd", f"{steer:+.2f}"),
@@ -223,7 +264,8 @@ class PlaygroundApp:
         help_lines = [
             "arrows/WASD drive   C driver",
             "P pause   R reset   +/- speed",
-            "T trail   Z camera   Esc quit",
+            "V rays   T trail   Z camera",
+            "Esc quit",
         ]
         y = h - 16 - 22 * len(help_lines)
         for line in help_lines:

@@ -38,3 +38,12 @@ def test_viewer_survives_crash_and_reset():
     app.reset()
     assert not app.sim.done
     app.run(max_frames=5)
+
+
+@pytest.mark.parametrize("driver", ["heuristic", "smoothed_random"])
+def test_baseline_drivers_run_in_the_viewer_with_rays(driver):
+    app = PlaygroundApp(load_track("beginner_oval"), controller=driver, frame_dt=1 / 60)
+    app.show_rays = True
+    app.clock.set_speed(8.0)
+    app.run(max_frames=60)
+    assert app.sim.step_count > 0
