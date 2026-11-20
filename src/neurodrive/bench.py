@@ -7,6 +7,9 @@ Two modes are timed separately so the numbers mean something:
   per step, before observations, rewards and the policy network are added).
 * ``sim+autopilot``: the simulation driven by the scripted pure-pursuit driver, which
   keeps the car on track for whole laps (closer to a realistic episode).
+* ``env (heuristic)``: the full Gymnasium environment (physics + raycasts + observation +
+  reward) driven by the sensors-only heuristic. This is the per-step cost a learner pays,
+  minus the neural network.
 """
 
 from __future__ import annotations
@@ -58,6 +61,22 @@ def bench(track: Track, steps: int, seed: int = 0) -> list[BenchResult]:
             resets += 1
         sim.step(driver.act(sim))
     results.append(BenchResult("sim+autopilot", steps, time.perf_counter() - t0, resets))
+
+    from neurodrive.agents.baselines import HeuristicController
+    from neurodrive.env.config import EnvConfig
+    from neurodrive.env.driving_env import DrivingEnv
+
+    env = DrivingEnv(EnvConfig(track=track.id), track=track)
+    heuristic = HeuristicController()
+    obs, _ = env.reset(seed=seed)
+    resets = 0
+    t0 = time.perf_counter()
+    for _ in range(steps):
+        obs, _, terminated, truncated, _ = env.step(heuristic.act(obs))
+        if terminated or truncated:
+            obs, _ = env.reset()
+            resets += 1
+    results.append(BenchResult("env (heuristic)", steps, time.perf_counter() - t0, resets))
     return results
 
 

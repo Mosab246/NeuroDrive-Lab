@@ -5,8 +5,14 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from neurodrive import __version__
+from neurodrive.env.config import ConfigError
+
+if TYPE_CHECKING:
+    from neurodrive.agents.base import Controller
+    from neurodrive.env.driving_env import DrivingEnv
 from neurodrive.sim.track import TrackError, builtin_track_ids, load_track
 
 
@@ -45,6 +51,73 @@ def _cmd_validate_track(args: argparse.Namespace) -> int:
     return 0
 
 
+CONTROLLERS = ("random", "smoothed_random", "heuristic", "autopilot")
+
+
+def make_controller(name: str, env: DrivingEnv, seed: int) -> Controller:
+    from neurodrive.agents import baselines as b
+
+    if name == "random":
+        return b.RandomController(seed)
+    if name == "smoothed_random":
+        return b.SmoothedRandomController(seed)
+    if name == "heuristic":
+        return b.HeuristicController(angles_deg=env.config.sensors.angles_deg)
+    if name == "autopilot":
+        return b.PrivilegedAutopilot(env)
+    raise ValueError(f"unknown controller '{name}' (choose from {', '.join(CONTROLLERS)})")
+
+
+def _cmd_evaluate(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from neurodrive.env.config import EnvConfig, load_env_config
+    from neurodrive.env.driving_env import DrivingEnv
+    from neurodrive.evaluation.evaluator import evaluate, write_results
+    from neurodrive.evaluation.scenarios import scenario_seeds
+    from neurodrive.experiments.metadata import run_metadata
+
+    config = load_env_config(args.config) if args.config else EnvConfig()
+    if args.track:
+        config = config.model_copy(update={"track": args.track})
+    env = DrivingEnv(config)
+    controller = make_controller(args.controller, env, args.seed)
+    seeds = scenario_seeds(args.split, args.episodes)
+    out = Path(args.out or f"runs/eval/{args.controller}_{config.track}_{args.split}")
+
+    def show(i: int, n: int) -> None:
+        if i == n or i % max(1, n // 10) == 0:
+            print(f"  {i}/{n} episodes", flush=True)
+
+    print(f"evaluating {controller.name} [{controller.kind}] on {config.track} ({args.split})")
+    records = evaluate(env, controller, seeds, progress=show)
+    meta = run_metadata() | {
+        "env_config": config.model_dump(mode="json"),
+        "observation": env.obs_builder.spec.to_dict(),
+        "split": args.split,
+        "scenario_seeds": [seeds[0], seeds[-1]],
+        "controller_seed": args.seed,
+    }
+    s = write_results(records, out, meta)
+    lo, hi = s["completion_rate_ci95"]
+    lap = (
+        f"{s['lap_time_mean']:.2f} s mean, {s['lap_time_best']:.2f} s best "
+        f"(over {s['lap_time_n']} completed laps)"
+        if s["lap_time_n"]
+        else "no completed laps"
+    )
+    print(
+        f"completed {s['completed']}/{s['episodes']} "
+        f"({100 * s['completion_rate']:.1f}%, 95% CI {100 * lo:.1f}-{100 * hi:.1f}%)\n"
+        f"lap time: {lap}\n"
+        f"mean lap progress: {100 * s['mean_lap_fraction']:.1f}%   "
+        f"collision rate: {100 * s['collision_rate']:.1f}%   "
+        f"endings: {s['termination_reasons']}\n"
+        f"wrote {out / 'episodes.csv'} and {out / 'summary.json'}"
+    )
+    return 0
+
+
 def _cmd_list_tracks(_: argparse.Namespace) -> int:
     for tid in builtin_track_ids():
         print(tid)
@@ -58,7 +131,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     play = sub.add_parser("play", help="open the interactive driving playground")
     play.add_argument("--track", default="beginner_oval", help="built-in track id or YAML path")
-    play.add_argument("--driver", choices=["keyboard", "autopilot"], default="keyboard")
+    play.add_argument(
+        "--driver",
+        choices=["keyboard", "heuristic", "smoothed_random", "autopilot"],
+        default="keyboard",
+    )
     play.add_argument("--width", type=int, default=1280)
     play.add_argument("--height", type=int, default=800)
     play.set_defaults(func=_cmd_play)
@@ -75,6 +152,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     lst = sub.add_parser("list-tracks", help="list built-in tracks")
     lst.set_defaults(func=_cmd_list_tracks)
+
+    ev = sub.add_parser("evaluate", help="evaluate a controller on fixed scenarios")
+    ev.add_argument("--controller", choices=CONTROLLERS, required=True)
+    ev.add_argument("--track", default=None, help="override the config's track")
+    ev.add_argument("--split", choices=["validation", "test"], default="validation")
+    ev.add_argument("--episodes", type=int, default=50)
+    ev.add_argument("--config", default=None, help="environment YAML (default: built-in)")
+    ev.add_argument("--seed", type=int, default=0, help="seed for random controllers")
+    ev.add_argument("--out", default=None, help="output folder (default under runs/eval/)")
+    ev.set_defaults(func=_cmd_evaluate)
     return p
 
 
@@ -82,7 +169,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return int(args.func(args))
-    except (TrackError, ValueError) as exc:
+    except (TrackError, ConfigError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     except KeyboardInterrupt:

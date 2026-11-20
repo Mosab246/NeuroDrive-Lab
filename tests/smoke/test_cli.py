@@ -21,3 +21,19 @@ def test_bench_runs_small(capsys):
 
 def test_bench_rejects_zero_steps(capsys):
     assert main(["bench-sim", "--steps", "0"]) == 2
+
+
+def test_evaluate_command(tmp_path, capsys):
+    assert (
+        main(["evaluate", "--controller", "heuristic", "--episodes", "2", "--out", str(tmp_path)])
+        == 0
+    )
+    out = capsys.readouterr().out
+    assert "completed" in out and (tmp_path / "summary.json").exists()
+
+
+def test_evaluate_bad_config_is_one_line(tmp_path, capsys):
+    bad = tmp_path / "env.yaml"
+    bad.write_text("env:\n  max_episode_seconds: -5\n", encoding="utf-8")
+    assert main(["evaluate", "--controller", "random", "--config", str(bad)]) == 2
+    assert "max_episode_seconds" in capsys.readouterr().err
