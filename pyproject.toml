@@ -10,6 +10,9 @@ dependencies = [
     "pydantic>=2.7",
     # pygame-ce, not pygame: same `import pygame`, actively maintained. Never install both.
     "pygame-ce>=2.5",
+    "gymnasium>=1.0,<2",
+    "stable-baselines3>=2.9,<3",
+    "torch>=2.8",
 ]
 
 [project.scripts]
@@ -22,6 +25,16 @@ dev = [
     "mypy>=1.10",
     "types-PyYAML",
 ]
+
+# PyTorch from the CPU wheel index: the small policy networks here train on the CPU
+# (see docs/architecture-review.md section 2). Remove this to get a CUDA build.
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [build-system]
 requires = ["hatchling>=1.25"]
