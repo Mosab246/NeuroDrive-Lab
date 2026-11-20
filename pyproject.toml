@@ -1,0 +1,49 @@
+[project]
+name = "neurodrive-lab"
+version = "0.1.0"
+description = "A 2D driving simulator where PPO and NEAT agents learn to drive, compared fairly."
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "numpy>=2.0",
+    "pyyaml>=6.0",
+    "pydantic>=2.7",
+    # pygame-ce, not pygame: same `import pygame`, actively maintained. Never install both.
+    "pygame-ce>=2.5",
+]
+
+[project.scripts]
+neurodrive = "neurodrive.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "mypy>=1.10",
+    "types-PyYAML",
+]
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/neurodrive"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "NPY", "RUF"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src/neurodrive"]
+ignore_missing_imports = true
+warn_unused_ignores = true

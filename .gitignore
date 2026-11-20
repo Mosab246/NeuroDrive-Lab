@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Experiment outputs (never commit checkpoints or logs by default)
+runs/
+*.zip
+events.out.tfevents.*
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
