@@ -42,6 +42,16 @@ class RewardConfig(_Strict):
 
 class EnvConfig(_Strict):
     track: str = "beginner_oval"
+    tracks: tuple[str, ...] | None = Field(
+        default=None,
+        min_length=1,
+        description="If set, each episode uses one of these tracks (picked by the reset "
+        "seed) and `track` is ignored. Procedural tracks: 'proc_<seed>'.",
+    )
+    random_start: bool = Field(
+        default=False,
+        description="Start each episode at a random point around the track (seeded).",
+    )
     laps_to_finish: int = Field(default=1, ge=1)
     max_episode_seconds: float = Field(default=90.0, gt=0)
     perturb_start: bool = Field(

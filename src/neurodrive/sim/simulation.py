@@ -89,6 +89,7 @@ class Simulation:
         self._rng = np.random.default_rng(seed)
         self.progress = ProgressTracker(track)
         self.state = VehicleState(0.0, 0.0, 0.0)
+        self.start_s = 0.0
         self._run = _Run()
         self.reset()
 
@@ -123,29 +124,39 @@ class Simulation:
         return (self._run.substep_count - self._run.lap_start_substep) * self.sub_dt
 
     # ------------------------------------------------------------------ control
-    def reset(self, seed: int | None = None, perturb: bool = False) -> None:
-        """Put the car on the start line, stationary.
+    def reset(
+        self, seed: int | None = None, perturb: bool = False, random_start: bool = False
+    ) -> None:
+        """Put the car on the track, stationary, facing the driving direction.
 
         Args:
-            seed: reseeds this simulation's random generator (only used for perturbation).
-            perturb: shift the start sideways and rotate it slightly, using the generator.
-                This is how evaluation gets genuinely different scenarios from a
-                deterministic simulator.
+            seed: reseeds this simulation's random generator (used for the options below).
+            perturb: shift the start sideways and rotate it slightly.
+            random_start: start at a random point around the track instead of the
+                start/finish line. Laps are then counted from that point.
+        These are how evaluation gets genuinely different scenarios from a deterministic
+        simulator.
         """
         if seed is not None:
             self._rng = np.random.default_rng(seed)
-        x, y, heading = self.track.start_pose()
+        start_s = float(self._rng.uniform(0.0, self.track.length)) if random_start else 0.0
+        point, tangent = self.track.point_at(start_s)
+        x, y = float(point[0]), float(point[1])
+        heading = math.atan2(float(tangent[1]), float(tangent[0]))
+        if not random_start:
+            x, y, heading = self.track.start_pose()
         if perturb:
             lat = self._rng.uniform(-1.0, 1.0) * self.config.start_lateral_jitter
             dh = self._rng.uniform(-1.0, 1.0) * self.config.start_heading_jitter
-            nx, ny = self.track.normals[0]
+            nx, ny = -math.sin(heading), math.cos(heading)
             x, y, heading = x + lat * nx, y + lat * ny, heading + dh
         # Place the *body center* on the start point; the state stores the rear axle.
         half = 0.5 * self.params.wheelbase
         self.state = VehicleState(
             x=x - half * math.cos(heading), y=y - half * math.sin(heading), heading=heading
         )
-        self.progress.reset(np.array(body_center(self.state, self.params)))
+        self.start_s = start_s
+        self.progress.reset(np.array(body_center(self.state, self.params)), start_s)
         self._run = _Run()
 
     def step(self, action: np.ndarray | tuple[float, float]) -> StepResult:

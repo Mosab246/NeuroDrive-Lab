@@ -27,13 +27,15 @@ class EnvView:
             self.surface = pygame.display.set_mode(size)
         else:
             self.surface = pygame.Surface(size)
-        rect = pygame.Rect(0, 0, *size)
-        self.track_view = R.TrackRenderer(env.track, rect)
+        self.rect = pygame.Rect(0, 0, *size)
+        self.track_view = R.TrackRenderer(env.track, self.rect)
         self.car_view = R.CarRenderer()
         self.car_view.show_trail = False
 
     def render(self) -> np.ndarray | None:
         env = self.env
+        if self.track_view.track is not env.track:  # multi-track env switched tracks
+            self.track_view = R.TrackRenderer(env.track, self.rect)
         camera = self.track_view.fit
         self.track_view.draw(self.surface, camera)
         hits = env.obs_builder.last_hits

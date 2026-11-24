@@ -44,15 +44,22 @@ class ProgressTracker:
         self.lap_base = 0.0  # distance at which the current lap started
         self.laps = 0
         self.next_checkpoint = 1  # 1..K
+        self.origin_s = 0.0
 
-    def reset(self, position: np.ndarray) -> None:
-        """Start tracking from ``position`` (searched globally, not windowed)."""
+    def reset(self, position: np.ndarray, origin_s: float = 0.0) -> None:
+        """Start tracking from ``position`` (searched globally, not windowed).
+
+        ``origin_s`` is where laps are measured from: 0 = the start/finish line. With a
+        random start point it's that point, so "one lap" always means one full circuit
+        from wherever the car started, and checkpoints are spaced from there.
+        """
         proj = self.track.project(np.asarray(position, dtype=np.float64)[None, :])
         self.segment = int(proj.segment[0])
         self.s = float(proj.s[0])
         self.lateral = float(proj.lateral[0])
-        # A start slightly behind the line counts as a small negative distance.
-        self.distance = wrap_delta(self.s, self.track.length)
+        self.origin_s = float(origin_s) % self.track.length
+        # A start slightly behind the origin counts as a small negative distance.
+        self.distance = wrap_delta(self.s - self.origin_s, self.track.length)
         self.lap_base = 0.0
         self.laps = 0
         self.next_checkpoint = 1

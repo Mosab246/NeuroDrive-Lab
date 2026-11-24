@@ -176,6 +176,16 @@ def builtin_track_ids() -> list[str]:
     return sorted(p.name[:-5] for p in folder.iterdir() if p.name.endswith(".yaml"))
 
 
+def load_any_track(id_or_path: str | Path) -> Track:
+    """Like :func:`load_track`, plus procedural tracks named ``proc_<seed>``."""
+    name = str(id_or_path)
+    if name.startswith("proc_") and name[5:].isdigit():
+        from neurodrive.sim.procedural import procedural_track
+
+        return procedural_track(int(name[5:]))
+    return load_track(id_or_path)
+
+
 def load_track(id_or_path: str | Path) -> Track:
     """Load a built-in track by id (e.g. ``"beginner_oval"``) or a YAML file by path."""
     text: str
