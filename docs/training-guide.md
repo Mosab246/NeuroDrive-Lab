@@ -80,3 +80,36 @@ learning behaves, so it's an experiment to run and compare, not a free speed-up.
 
 **GPU:** not measured yet. The project installs the CPU build of PyTorch. Measuring the
 GPU needs the CUDA build (~2.5 GB) in a separate environment.
+
+## NEAT
+
+```powershell
+# Pipeline check: a few seconds
+uv run python -m neurodrive train neat --config configs/neat/smoke.yaml
+
+# The real run: 150 genomes x 100 generations (about 18 minutes with 12 workers)
+uv run python -m neurodrive train neat --config configs/neat/default.yaml
+
+# Continue from a population checkpoint, to a new total number of generations
+uv run python -m neurodrive train neat --config configs/neat/default.yaml --generations 150 --resume runs/neat/<run>/checkpoints/gen-100
+
+# Watch, evaluate, draw
+uv run python -m neurodrive play --model runs/neat/<run>/best_model.pkl
+uv run python -m neurodrive evaluate --model runs/neat/<run>/best_model.pkl --episodes 100
+uv run python -m neurodrive show-network runs/neat/<run>/champions/gen_0050.pkl
+```
+
+Two config files work together:
+
+- `configs/neat/default.yaml`: the experiment (environment, population size, generations,
+  step budget, fitness speed weight, seed, worker processes).
+- `configs/neat/default.ini`: neat-python's genome rules (mutation rates, speciation
+  threshold, ...). `num_inputs` must equal the observation size (11, or 14 with route
+  features); the trainer checks this.
+
+The run folder keeps a copy of the `.ini` it used, every generation's champion
+(`champions/`), `generations.csv`, and `fitness.png` / `complexity.png` /
+`best_model_network.png`.
+
+**Known tuning issue:** `compatibility_threshold = 3.0` is too high for these small networks:
+only one species formed until generation 48. See the Phase 4 report.

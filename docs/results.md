@@ -3,6 +3,70 @@
 Only numbers that were actually measured go here, each with the exact command, the
 machine, and the date.
 
+## Second trained agent: NEAT on the Beginner Oval (Phase 4)
+
+**One evolution seed (seed 0), one easy track.** Same caveats as PPO.
+
+**Evolution:** `uv run python -m neurodrive train neat --config configs/neat/default.yaml`
+on 2026-11-25. Population 150, 100 generations, each genome scored on 2 shared starting
+scenarios per generation, fitness = episode reward + 1 per second a lap finishes under
+90 s. 12 worker processes. **12,050,593 environment steps** (30,000 episodes) in 1,070 s
+(17.8 min): 11,260 steps/s. Run folder (git-ignored):
+`runs/neat/neat_oval_seed0_20261125-010551`.
+
+**Evolution curve** (training data from `generations.csv`; "laps" = share of all
+genome-episodes in that generation that finished):
+
+| Generation | Env steps used | Best fitness | Best lap in generation | Species | Best network |
+|---|---|---|---|---|---|
+| 0 | 34,894 | 1.9 | — (no laps) | 1 | 0 hidden, 22 connections |
+| 1 | 71,328 | 127.8 | 21.35 s | 1 | 0 hidden, 22 connections |
+| 5 | 298,135 | 127.8 | 21.32 s | 1 | 0 hidden, 22 connections |
+| 10 | 766,783 | 128.6 | 20.57 s | 1 | 1 hidden, 14 connections |
+| 20 | 1,951,101 | 129.4 | 19.73 s | 1 | 1 hidden, 10 connections |
+| 50 | 5,736,872 | 129.4 | 19.73 s | 2 | 1 hidden, 10 connections |
+| 99 | 12,050,593 | 129.4 | 19.73 s | 4 | 1 hidden, 10 connections |
+
+![NEAT fitness](images/phase4-neat-fitness.png)
+
+**Test scenarios** (the same 100 as every driver in Phase 3):
+
+| Driver | Env steps of training | Laps (95% CI) | Lap time over completed laps |
+|---|---|---|---|
+| NEAT gen 0 champion | 34,894 | 0/100 (0-3.7%) | — (100 collisions, at 24% of the lap) |
+| NEAT gen 1 champion | 71,328 | 100/100 (96.3-100%) | 21.32 s (best 21.17), n = 100 |
+| NEAT gen 5 champion | 298,135 | 100/100 (96.3-100%) | 21.32 s (best 21.17), n = 100 |
+| NEAT gen 12 champion (closest to PPO's 1M steps) | 972,707 | 100/100 (96.3-100%) | 20.57 s (best 20.55), n = 100 |
+| **NEAT `best_model` (gen 20, chosen on validation)** | 1,951,101 | **100/100 (96.3-100%)** | **19.74 s (best 19.73), n = 100** |
+| PPO `best_model` (Phase 3) | 1,000,000 | 100/100 (96.3-100%) | 21.61 s (best 21.55), n = 100 |
+| `heuristic` | — | 100/100 (96.3-100%) | 26.36 s, n = 100 |
+
+(The gen 1 and gen 5 champions are likely the same genome carried over by elitism: they
+score identically.)
+
+**What this shows, and what it doesn't:**
+
+- **On this oval, NEAT found a lapping driver almost immediately.** One generation of
+  mutation from random 22-connection networks (71k env steps) produced a driver that laps
+  every test scenario, already faster than PPO's final policy. PPO needed ~350k steps for
+  its first laps. **This mostly says the oval is easy**: a nearly linear mapping from rays
+  to controls is enough to drive it. It is not yet evidence that NEAT is the better method.
+- **NEAT got fast and then stopped improving.** The best lap reached 19.73 s at generation
+  20 and never changed in the remaining 80 generations (~10 million steps).
+- **The evolved network is small and ignores some inputs:** 1 hidden neuron, 10 active
+  connections. It doesn't use the wheel-angle input or the -40°, +20° and +60° rays at all.
+  (A drawing shows connections, not meaning; see below.)
+- **At a comparable budget** (gen 12, 0.97M steps vs PPO's 1M), NEAT's champion laps in
+  20.57 s vs PPO's 21.61 s. That's one seed each, on the easiest track, so it's a pointer
+  for Phase 6, not a result.
+- **Wall-clock:** NEAT used 12x more environment steps than PPO but finished in 17.8 min vs
+  26.6 min, because it needs no gradient updates and scores genomes on 12 processes
+  (11,260 vs 637 steps/s).
+- **Speciation barely worked:** see the Phase 4 report. One species until
+  generation 48.
+
+![NEAT best network](images/phase4-neat-network.png)
+
 ## First trained agent: PPO on the Beginner Oval (Phase 3)
 
 **One training seed (seed 0).** This shows PPO *can* learn this task; it says nothing

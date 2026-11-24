@@ -4,10 +4,11 @@ A 2D top-down driving simulator built as a controlled experiment: can a car lear
 by itself, and how do **reinforcement learning (PPO)** and **neuroevolution (NEAT)** compare
 when they get the same car, sensors, tracks and budget?
 
-> **Status: Phase 3 of 8: first trained driver (PPO).** A PPO agent learned, from sensor
-> readings alone, to lap the Beginner Oval in 100/100 test scenarios, averaging 21.61 s per
-> lap vs 26.36 s for a hand-written driver with the same inputs. One training seed, one
-> easy track: see [results](docs/results.md). NEAT is next. See
+> **Status: Phase 4 of 8: two trained drivers.** On the Beginner Oval, a PPO agent
+> (reinforcement learning) laps 100/100 test scenarios in 21.61 s and an evolved NEAT
+> network in 19.74 s; a hand-written driver with the same sensors takes 26.36 s. One seed
+> each, one easy track: so easy that NEAT's *first* generation could lap it. Harder and
+> unseen tracks are next. See [results](docs/results.md) and
 > [the roadmap](docs/architecture-review.md#7-refined-roadmap-with-acceptance-criteria).
 
 ![PPO driving with its sensor rays shown](docs/images/phase3-ppo-driving.png)
@@ -30,9 +31,11 @@ when they get the same car, sensors, tracks and budget?
   0.25×–8× speed, follow camera
 - PPO training (Stable-Baselines3): configs, seeds, checkpoints from step 0, TensorBoard,
   validation-based checkpoint selection, resume, and trained-model playback
-- 141 automated tests
+- NEAT neuroevolution (neat-python): parallel scoring, per-generation champions and
+  statistics, validation-based selection, reproducible runs, evolved-network drawings
+- 151 automated tests
 
-Not built yet: NEAT, replays, multiple tracks. See
+Not built yet: replays, multiple tracks, the PPO-vs-NEAT benchmark. See
 [docs/architecture-review.md](docs/architecture-review.md).
 
 ## Install (Windows PowerShell)
@@ -62,6 +65,11 @@ uv run python -m neurodrive train ppo --config configs/ppo/default.yaml
 uv run python -m neurodrive play --model runs/ppo/<run>/best_model.zip
 uv run python -m neurodrive evaluate --model runs/ppo/<run>/best_model.zip --episodes 100
 uv run tensorboard --logdir runs/ppo
+
+# Evolve NEAT drivers (about 18 minutes), watch the best, draw its network
+uv run python -m neurodrive train neat --config configs/neat/default.yaml
+uv run python -m neurodrive play --model runs/neat/<run>/best_model.pkl
+uv run python -m neurodrive show-network runs/neat/<run>/best_model.pkl
 
 # Measure headless simulation speed
 uv run python -m neurodrive bench-sim --steps 100000
@@ -98,14 +106,15 @@ src/neurodrive/
   sim/          physics, tracks, sensors, progress, simulation (pure NumPy, no graphics)
   tracks/       track YAML files
   env/          Gymnasium environment: config, observations, rewards
-  agents/       Controller interface, baseline drivers, PPO controller
-  training/     PPO training: config, callbacks, run folders
+  agents/       Controller interface, baselines, PPO and NEAT controllers, model loading
+  training/     PPO and NEAT training: configs, run folders
+  viz/          network drawings and NEAT plots
   evaluation/   scenarios, evaluator, metrics
   experiments/  run metadata (versions, git commit)
   ui/           pygame-ce playground
   bench.py      headless throughput benchmark
   cli.py        python -m neurodrive ...
-configs/        environment and PPO experiment YAML
+configs/        environment, PPO and NEAT experiment configs
 tests/          unit, integration, smoke
 docs/           spec, architecture review, physics, measured results
 ```
@@ -119,7 +128,8 @@ docs/           spec, architecture review, physics, measured results
 - [docs/training-guide.md](docs/training-guide.md): how to train, watch, resume and evaluate
 - [docs/results.md](docs/results.md): measured numbers only, with commands
 - [docs/phases/phase-1.md](docs/phases/phase-1.md), [docs/phases/phase-2.md](docs/phases/phase-2.md),
-  [docs/phases/phase-3.md](docs/phases/phase-3.md): phase reports
+  [docs/phases/phase-3.md](docs/phases/phase-3.md),
+  [docs/phases/phase-4.md](docs/phases/phase-4.md): phase reports
 
 ## License
 

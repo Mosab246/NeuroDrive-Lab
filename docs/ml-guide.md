@@ -195,3 +195,71 @@ uv run tensorboard --logdir runs/ppo
 | `train/explained_variance` | How much of the return variation the critic explains (1 = perfect, 0 = useless) | Climbs toward 0.8–1 |
 
 The "healthy" ranges are rules of thumb, not guarantees.
+
+## NEAT: how the second agent evolves (Phase 4)
+
+### Evolution instead of gradients
+
+PPO improves **one** network by calculating which direction to nudge each weight
+(*gradient descent*). NEAT doesn't calculate anything like that. It keeps a **population**
+of 150 networks and does what breeders do:
+
+1. **Test everyone.** Each network drives the car; its driving earns a *fitness* score.
+2. **Select.** Keep the best performers; the rest are discarded.
+3. **Breed.** Make the next generation from the survivors: combine two parents
+   (**crossover**) and make small random changes (**mutation**): tweak a weight, add a
+   connection, insert a new neuron.
+4. Repeat for 100 generations.
+
+No network ever learns during its own drive. Improvement happens *between* generations,
+because better drivers have more offspring.
+
+### What makes NEAT special: the network's shape evolves too
+
+Most neuroevolution only evolves the weights of a fixed network. NEAT (*NeuroEvolution of
+Augmenting Topologies*, Stanley & Miikkulainen, 2002) also evolves the **structure**:
+
+- Every network starts **minimal**: the 11 inputs wired straight to the 2 outputs, 22
+  connections, no hidden neurons.
+- Mutations can add connections and insert neurons. Structure only survives if it helps.
+- Each new connection or neuron gets an **innovation number**, a historical ID. That's how
+  NEAT lines up two different-shaped parents during crossover.
+- **Speciation:** a new structure usually performs *worse* at first, before its weights are
+  tuned. If it competed with everyone immediately it would be wiped out. NEAT groups
+  similar networks into **species** that mostly compete among themselves, giving
+  innovations time to mature.
+
+`generations.csv` tracks the best network's hidden neurons and connections every
+generation, and `complexity.png` plots it.
+
+### Fitness vs reward
+
+| | PPO | NEAT |
+|---|---|---|
+| Feedback | A reward after **every step** | One **fitness** number per **whole episode** |
+| What it tells the learner | Which actions, in which situations, worked | Only how good the driver was overall |
+| Speed incentive | Built in: discounting (γ = 0.99) makes reward sooner worth more | Must be added explicitly |
+
+NEAT's fitness here is:
+
+```
+fitness = the episode's total reward (same reward as PPO)
+        + 1 point per second the lap finishes under the 90 s limit   (laps only)
+```
+
+Why not just the total reward? A completed lap always earns 0.1 × 491 m + 10 ≈ 59,
+whatever the lap time, so evolution would stop improving speed as soon as cars can finish.
+Why not PPO's discounted reward? With γ = 0.99, reward more than a few seconds ahead counts
+almost nothing, so as a score for a whole 25-second episode it would mostly measure the
+first few seconds.
+
+**Fair-luck rule:** within one generation, every network drives the *same* 2 starting
+scenarios. Otherwise a network could win just by getting an easier start.
+
+### Counting the cost
+
+Every step every network drives counts as an environment step. 150 networks × 2 episodes
+× ~700 steps is ~200,000 steps *per generation* once they can finish laps. NEAT typically
+uses far more environment steps than PPO, but each step is cheap (no gradient
+calculations) and networks are scored in parallel on 12 processes. That's why the
+comparison (Phase 6) reports both environment steps and wall-clock time.
