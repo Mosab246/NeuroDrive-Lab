@@ -3,6 +3,106 @@
 Only numbers that were actually measured go here, each with the exact command, the
 machine, and the date.
 
+## Multi-track training fixes the overfitting (Phase 5)
+
+**Setup:** 2026-11-25. Both algorithms retrained on the three **training** tracks
+(`beginner_oval` counter-clockwise, `curved_circuit` clockwise, `technical_circuit`
+counter-clockwise), from random start points; best version chosen on the separate
+`validation_circuit`. Then evaluated exactly like the oval-trained drivers: 26 tracks x 20
+random-start test scenarios. **The PPO and NEAT runs shared the CPU for the first ~11
+minutes, so their wall-clock times are not clean measurements.**
+
+```powershell
+uv run python -m neurodrive train ppo --config configs/ppo/multitrack.yaml
+uv run python -m neurodrive train neat --config configs/neat/multitrack.yaml
+```
+
+| | PPO multi-track | NEAT multi-track |
+|---|---|---|
+| Run folder (git-ignored) | `runs/ppo/ppo_multitrack_seed0_20261125-020842` | `runs/neat/neat_multitrack_seed0_20261125-020836` |
+| Training budget | 2,015,232 env steps, 1,813 s | 60 generations, 11,456,428 env steps, 672 s |
+| First full laps on validation track | 400k steps | generation 5 (402k steps) |
+| Chosen model | step 600k (validation lap 21.93 s) | generation 40, 7.74M steps (validation lap 20.98 s) |
+| Chosen network | 64x64 MLP | 2 hidden neurons, 11 connections |
+| **All 26 tracks: laps** | **520/520 (95% CI 99.3-100%)** | **520/520 (95% CI 99.3-100%)** |
+| Mean lap time over all 520 laps | 22.50 s | 21.63 s |
+| Unseen `unseen_a` / `unseen_b` | 23.07 s / 22.46 s | 21.65 s / 21.67 s |
+
+For reference, on the same 520 scenarios: `heuristic` 520/520, `autopilot` 520/520 (both
+slower on every track; see the previous section's per-track tables in the Phase 5
+report).
+
+**What this shows:**
+
+- **Training on varied tracks (both directions, random starts) fixed the overfitting.**
+  Both agents now complete every lap on every track, including the 22 they never trained
+  on. The oval-only versions managed 63.7% (PPO) and 37.5% (NEAT).
+- **NEAT's chosen driver is faster than PPO's on 25 of 26 tracks**, by 0.86 s on average
+  (range: 0.79 s slower to 1.76 s faster).
+- **But NEAT's model used 13x more environment steps** (7.74M vs 0.6M). With one seed each
+  and unequal budgets, this is *not* evidence that NEAT is better in general. Phase 6
+  compares them at matched budgets, over several seeds.
+- **PPO peaked early, then drifted:** its validation lap time was best at 600k steps
+  (21.93 s) and slightly worse afterwards (22.46 s at 2M); the final model is 0.25 s
+  slower on average across the 26 tracks (22.75 s vs 22.50 s). Validation-based selection
+  caught that.
+- **Speciation now works** with `compatibility_threshold = 2.0`: 2 to 10 species
+  throughout, vs a single species until generation 48 in Phase 4.
+
+![NEAT multi-track network](images/phase5-neat-multitrack-network.png)
+
+The chosen NEAT network's weights (a description, not a claim about "intent"): the right-side
+rays (+20 deg, +40 deg) push steering right and the -60 deg ray pushes it left; the straight-ahead
+ray raises throttle through a hidden neuron; speed pushes toward braking. That's close in
+form to the hand-written heuristic, tuned to drive ~30% faster.
+
+## Generalization: oval-trained drivers on new tracks (Phase 5)
+
+**Question:** PPO and NEAT were trained only on the Beginner Oval (Phases 3-4). Did they learn
+to *drive*, or to drive *the oval*?
+
+**Setup:** 2026-11-25. Each driver gets 20 episodes per track, starting from a **random
+point around the track** (plus the usual small offset), on 26 tracks: the 6 built-in
+tracks and 20 procedural tracks (`proc_0`..`proc_19`, all test-only). Test scenario seeds.
+Same scenarios for every driver.
+
+```powershell
+uv run python -m neurodrive evaluate --model <model> --tracks "beginner_oval,curved_circuit,technical_circuit,validation_circuit,unseen_a,unseen_b,proc:20" --start random --episodes 20 --split test
+```
+
+![All tracks](images/phase5-tracks.png)
+
+| Driver | Trained on | Laps completed, all 26 tracks (95% CI) |
+|---|---|---|
+| PPO `best_model` (Phase 3) | oval only | 331/520 = 63.7% (59.4-67.7%) |
+| NEAT `best_model` (Phase 4) | oval only | 195/520 = 37.5% (33.4-41.7%) |
+| `heuristic` (hand-written, same sensors) | — | 520/520 = 100% (99.3-100%) |
+| `autopilot` (scripted, privileged) | — | 520/520 = 100% (99.3-100%) |
+
+**Split by the direction a track is driven:**
+
+| Track direction | Tracks | PPO lap rate | NEAT lap rate |
+|---|---|---|---|
+| Counter-clockwise (same as the oval) | 17 | 95% | 57% |
+| Clockwise (opposite) | 9 | 4% | 0% |
+
+(Mean of per-track lap rates. The clockwise tracks are `curved_circuit`, `unseen_a`, and
+`proc_3, 7, 9, 10, 14, 15, 19`.)
+
+**What this shows:**
+
+- **Both agents overfit to the oval.** The oval is driven counter-clockwise, so it only ever
+  turns left. On tracks that turn right, PPO completes 4% of laps and NEAT none: they
+  never learned right turns.
+- **PPO generalized better to new shapes in the familiar direction** (95% vs NEAT's 57%).
+  NEAT's evolved 10-connection network got the oval fast but is brittle elsewhere: on
+  several counter-clockwise tracks it barely leaves the start (e.g. `proc_12`: 0/20).
+- **The 10-line hand-written heuristic beats both learned agents on generality**, though
+  it's slower wherever they do finish (e.g. oval 26.07 s vs PPO 21.48 s, NEAT 19.37 s).
+  Learning bought speed on the training track at the cost of robustness.
+- Per-track tables: `runs/eval/phase5_zeroshot/<driver>/summary.json` (git-ignored) and
+  the console output recorded in the Phase 5 report.
+
 ## Second trained agent: NEAT on the Beginner Oval (Phase 4)
 
 **One evolution seed (seed 0), one easy track.** Same caveats as PPO.

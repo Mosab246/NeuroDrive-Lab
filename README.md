@@ -4,12 +4,12 @@ A 2D top-down driving simulator built as a controlled experiment: can a car lear
 by itself, and how do **reinforcement learning (PPO)** and **neuroevolution (NEAT)** compare
 when they get the same car, sensors, tracks and budget?
 
-> **Status: Phase 4 of 8: two trained drivers.** On the Beginner Oval, a PPO agent
-> (reinforcement learning) laps 100/100 test scenarios in 21.61 s and an evolved NEAT
-> network in 19.74 s; a hand-written driver with the same sensors takes 26.36 s. One seed
-> each, one easy track: so easy that NEAT's *first* generation could lap it. Harder and
-> unseen tracks are next. See [results](docs/results.md) and
-> [the roadmap](docs/architecture-review.md#7-refined-roadmap-with-acceptance-criteria).
+> **Status: Phase 5 of 8: generalization.** Trained only on the oval, both agents
+> overfit: they never learned right turns (PPO completed 4% of laps on clockwise tracks,
+> NEAT 0%). Trained on three varied tracks, **both complete 100% of laps on 26 tracks,
+> 22 of them never seen in training**: PPO in 22.50 s on average, NEAT in 21.63 s. One
+> seed each, unequal budgets: the fair comparison is Phase 6. See
+> [results](docs/results.md).
 
 ![PPO driving with its sensor rays shown](docs/images/phase3-ppo-driving.png)
 
@@ -33,9 +33,11 @@ when they get the same car, sensors, tracks and budget?
   validation-based checkpoint selection, resume, and trained-model playback
 - NEAT neuroevolution (neat-python): parallel scoring, per-generation champions and
   statistics, validation-based selection, reproducible runs, evolved-network drawings
-- 151 automated tests
+- 6 tracks (train / validation / test, both directions) plus unlimited procedural test
+  tracks; random start points; multi-track training; split rules enforced in code
+- 174 automated tests
 
-Not built yet: replays, multiple tracks, the PPO-vs-NEAT benchmark. See
+Not built yet: the multi-seed PPO-vs-NEAT benchmark, replays, the polished UI. See
 [docs/architecture-review.md](docs/architecture-review.md).
 
 ## Install (Windows PowerShell)
@@ -70,6 +72,11 @@ uv run tensorboard --logdir runs/ppo
 uv run python -m neurodrive train neat --config configs/neat/default.yaml
 uv run python -m neurodrive play --model runs/neat/<run>/best_model.pkl
 uv run python -m neurodrive show-network runs/neat/<run>/best_model.pkl
+
+# Train on several tracks, then test on tracks never seen in training
+uv run python -m neurodrive train ppo --config configs/ppo/multitrack.yaml
+uv run python -m neurodrive evaluate --model runs/ppo/<run>/best_model.zip --tracks "split:test,proc:20" --start random --split test
+uv run python -m neurodrive play --track unseen_a --model runs/ppo/<run>/best_model.zip
 
 # Measure headless simulation speed
 uv run python -m neurodrive bench-sim --steps 100000
@@ -115,6 +122,7 @@ src/neurodrive/
   bench.py      headless throughput benchmark
   cli.py        python -m neurodrive ...
 configs/        environment, PPO and NEAT experiment configs
+scripts/        generate_tracks.py (how the built-in tracks were made)
 tests/          unit, integration, smoke
 docs/           spec, architecture review, physics, measured results
 ```
@@ -129,7 +137,8 @@ docs/           spec, architecture review, physics, measured results
 - [docs/results.md](docs/results.md): measured numbers only, with commands
 - [docs/phases/phase-1.md](docs/phases/phase-1.md), [docs/phases/phase-2.md](docs/phases/phase-2.md),
   [docs/phases/phase-3.md](docs/phases/phase-3.md),
-  [docs/phases/phase-4.md](docs/phases/phase-4.md): phase reports
+  [docs/phases/phase-4.md](docs/phases/phase-4.md),
+  [docs/phases/phase-5.md](docs/phases/phase-5.md): phase reports
 
 ## License
 
