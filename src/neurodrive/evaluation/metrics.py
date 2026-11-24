@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
+from typing import Any
 
 import numpy as np
 
@@ -71,3 +73,17 @@ def summarize(records: list[EpisodeRecord]) -> dict[str, object]:
         "mean_speed": float(np.mean([r.mean_speed for r in records])),
         "mean_return": float(np.mean([r.episode_return for r in records])),
     }
+
+
+def selection_key(row: Mapping[str, Any]) -> tuple[float, float, float]:
+    """How checkpoints are ranked on validation: most laps completed, then most progress,
+    then the fastest lap.
+
+    Not episode return: a completed lap is always worth 0.1 * length + bonus however long
+    it took, so return can't tell a 30 s lap from a 20 s one. (PPO still learns to go
+    faster because it discounts future reward with gamma; the undiscounted return doesn't.)
+    Works on summary dicts and on CSV rows (strings; empty lap time = no laps).
+    """
+    lap = row.get("lap_time_mean")
+    lap_time = float(lap) if lap not in (None, "") else float("inf")
+    return (float(row["completion_rate"]), float(row["mean_lap_fraction"]), -lap_time)

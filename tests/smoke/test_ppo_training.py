@@ -127,7 +127,7 @@ def test_trained_model_drives_in_the_playground(run_dir, monkeypatch):
 
 
 def test_checkpoint_selection_prefers_laps_then_progress_then_speed():
-    from neurodrive.training.ppo import selection_key
+    from neurodrive.training.ppo import selection_key  # re-exported from evaluation.metrics
 
     slow_lap = {"completion_rate": 1.0, "mean_lap_fraction": 1.0, "lap_time_mean": 25.0}
     fast_lap = {"completion_rate": 1.0, "mean_lap_fraction": 1.0, "lap_time_mean": 21.0}

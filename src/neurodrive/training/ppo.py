@@ -41,7 +41,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 from neurodrive.agents.ppo_agent import PPOController, write_model_meta
 from neurodrive.env.driving_env import DrivingEnv
 from neurodrive.evaluation.evaluator import evaluate
-from neurodrive.evaluation.metrics import summarize
+from neurodrive.evaluation.metrics import selection_key, summarize
 from neurodrive.evaluation.scenarios import scenario_seeds
 from neurodrive.experiments.metadata import run_metadata
 from neurodrive.training.config import PPOExperiment
@@ -57,20 +57,6 @@ EVAL_FIELDS = (
     "mean_return",
     "mean_speed",
 )
-
-
-def selection_key(row: dict[str, Any]) -> tuple[float, float, float]:
-    """How checkpoints are ranked on validation: most laps completed, then most progress,
-    then the fastest lap.
-
-    Not episode return: a completed lap is always worth 0.1 * length + bonus however long
-    it took, so return can't tell a 30 s lap from a 20 s one. (PPO still learns to go
-    faster because it discounts future reward with gamma; the undiscounted return doesn't.)
-    Works on summary dicts and on CSV rows (strings; empty lap time = no laps).
-    """
-    lap = row.get("lap_time_mean")
-    lap_time = float(lap) if lap not in (None, "") else float("inf")
-    return (float(row["completion_rate"]), float(row["mean_lap_fraction"]), -lap_time)
 
 
 def _make_env(exp: PPOExperiment) -> DrivingEnv:
