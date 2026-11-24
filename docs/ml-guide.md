@@ -140,3 +140,58 @@ is written to `episodes.csv`; summaries are computed from those rows, so no numb
 report can exist without episodes behind it. Completion rates come with a 95% confidence
 interval (Wilson method), and lap times are always reported with how many laps they
 average over.
+
+## PPO: how the first agent learns (Phase 3)
+
+### The policy is a neural network
+
+The PPO agent's policy is a small neural network: 11 inputs → 64 → 64 → 2 outputs
+(steering, pedal). About 5,000 numbers (*weights*) decide what it does. At the start they
+are random, so the car does random-ish things. Training adjusts the weights.
+
+During training the network doesn't output one action; it outputs the **center of a bell
+curve** (Gaussian) for each action, plus how wide that bell curve is. The actual action is
+*sampled* from it. That randomness is **exploration**: trying slightly different things to
+find out what works. The width (`std`) starts at 1 and is learned too: as the agent gets
+confident, it usually narrows. At evaluation time we use the center directly
+(`deterministic=True`), with no randomness.
+
+A second network of the same size, the **value function** (or *critic*), learns to predict
+"from this situation, how much reward will I collect from here on?"
+
+### One round of PPO
+
+1. **Collect experience.** Run the current policy in 8 copies of the environment for
+   2,048 steps each: 16,384 (observation, action, reward) records.
+2. **Score each action.** For every step, compare what actually happened with what the
+   critic expected. Better than expected → that action gets a positive **advantage**;
+   worse → negative. (The exact recipe, *GAE*, blends one-step and long-run estimates;
+   `gamma = 0.99` and `gae_lambda = 0.95` control how far ahead it looks.)
+3. **Nudge the policy.** Make actions with positive advantage more likely and negative
+   ones less likely, using gradient descent, 10 passes over the data in batches of 64.
+4. **But not too far.** This is the "proximal" in PPO. If an update would change the
+   probability of an action by more than 20% (`clip_range = 0.2`), the extra push is cut
+   off. Without this, one lucky or unlucky batch can wreck a policy that took an hour to
+   learn. It's the main reason PPO is popular: it's stable without much tuning.
+5. **Throw the data away** and repeat with the updated policy. PPO is *on-policy*: it only
+   learns from experience collected by the current policy.
+
+### Reading the TensorBoard graphs
+
+```powershell
+uv run tensorboard --logdir runs/ppo
+```
+
+| Graph | What it means | Healthy looks like |
+|---|---|---|
+| `rollout/ep_rew_mean` | Average training-episode reward (with exploration noise) | Rising, then flattening |
+| `episodes/lap_complete_rate` etc. | How training episodes end (last 100) | Laps up, collisions/stalls down |
+| `eval/completion_rate`, `eval/mean_return` | Deterministic policy on fixed validation scenarios | The honest progress measure |
+| `train/entropy_loss` | Minus how random the policy still is | Rises toward 0 slowly as the policy gets more certain |
+| `train/std` | Width of the exploration bell curve | Shrinks over training |
+| `train/approx_kl` | How much one update changed the policy | Small (~0.01–0.03); large spikes mean unstable updates |
+| `train/clip_fraction` | Share of samples where the clip in step 4 kicked in | Roughly 0.05–0.3 |
+| `train/value_loss` | How wrong the critic's predictions are | Noisy; can rise when the agent discovers new, bigger rewards |
+| `train/explained_variance` | How much of the return variation the critic explains (1 = perfect, 0 = useless) | Climbs toward 0.8–1 |
+
+The "healthy" ranges are rules of thumb, not guarantees.

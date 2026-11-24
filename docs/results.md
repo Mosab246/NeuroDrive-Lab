@@ -1,7 +1,75 @@
 # Measured results
 
 Only numbers that were actually measured go here, each with the exact command, the
-machine, and the date. There are no learned-agent results yet.
+machine, and the date.
+
+## First trained agent: PPO on the Beginner Oval (Phase 3)
+
+**One training seed (seed 0).** This shows PPO *can* learn this task; it says nothing
+yet about how reliably it learns (that needs several seeds: Phase 6).
+
+**Training:** `uv run python -m neurodrive train ppo --config configs/ppo/default.yaml`
+on 2026-11-24. Stable-Baselines3 default hyperparameters, 8 `subproc` environments, CPU.
+1,015,808 steps (training stops at the end of a rollout) in 1,596 s (26.6 min), i.e.
+637 steps/s including periodic evaluations. Run folder (git-ignored):
+`runs/ppo/ppo_oval_seed0_20261124-221617`.
+
+**Learning curve** (deterministic policy, 10 validation scenarios, from `eval_history.csv`):
+
+| Steps | Laps (of 10) | Mean lap progress | Lap time |
+|---|---|---|---|
+| 0 | 0 | 0.0% | — |
+| 50,000 | 0 | 6.8% | — |
+| 100,000 | 0 | 8.0% | — |
+| 150,000 | 0 | 24.5% | — |
+| 200,000 | 0 | 72.4% | — |
+| 250,000 | 0 | 74.9% | — |
+| 300,000 | 0 | 57.7% | — |
+| 350,000 | 10 | 100% | 23.36 s |
+| 500,000 | 10 | 100% | 22.42 s |
+| 750,000 | 10 | 100% | 21.79 s |
+| 1,000,000 | 10 | 100% | 21.62 s |
+
+Not monotonic: progress fell from 74.9% to 57.7% between 250k and 300k steps before the
+first full laps at 350k.
+
+**Comparison on the 100 test scenarios** (seeds 2,000,000-2,000,099, shared by every
+driver; nothing was selected or tuned on them):
+
+```powershell
+uv run python -m neurodrive evaluate --controller <name> --episodes 100 --split test
+uv run python -m neurodrive evaluate --model <run>/<checkpoint>.zip --episodes 100 --split test
+```
+
+| Driver | Laps (95% CI) | Lap time over completed laps | Endings |
+|---|---|---|---|
+| `random` | 0/100 (0-3.7%) | — | 100 stalled |
+| `smoothed_random` | 0/100 (0-3.7%) | — | 59 collision, 41 stalled |
+| `heuristic` (hand-written, same inputs) | 100/100 (96.3-100%) | 26.36 s (best 26.35), n = 100 | all laps |
+| `autopilot` (scripted, privileged) | 100/100 (96.3-100%) | 25.37 s (best 25.37), n = 100 | all laps |
+| PPO, step 0 (untrained) | 0/100 (0-3.7%) | — | 100 stalled |
+| PPO, 200k steps | 0/100 (0-3.7%) | — | 100 collision, at 72% of the lap |
+| PPO, 350k steps | 100/100 (96.3-100%) | 23.36 s (best 23.32), n = 100 | all laps |
+| **PPO, 1M steps (`best_model`)** | **100/100 (96.3-100%)** | **21.61 s (best 21.55), n = 100** | all laps |
+
+**What this shows, and what it doesn't:**
+
+- PPO learned, from sensor readings alone, to complete every lap, and drives the oval
+  **4.75 s faster per lap than the hand-written heuristic** and 3.76 s faster than the
+  privileged autopilot. The heuristic's fastest setting found in Phase 2 tuning was
+  22.5 s; PPO is faster than that too.
+- In the playground, PPO's line runs close to the outer wall through the curves at around
+  75 km/h. That's the fast line, with little margin. Whether it survives harder or unseen
+  tracks is a Phase 5 question.
+- The untrained policy stalls: its *mean* action is close to "no steering, no throttle",
+  and evaluation uses the mean.
+- The 200k checkpoint crashes at the same place in all 100 scenarios. That's another sign
+  the start perturbation creates little variety on this track (see Phase 2 results).
+- **Limits:** one seed, one easy track, test scenarios that differ only slightly. The
+  checkpoint chosen as `best_model` (step 1,000,000) was picked with the old criterion
+  (validation return; see the Phase 3 report). Under the new criterion
+  (laps, progress, lap time) the final model (21.60 s on validation) would have been
+  marginally preferred; the difference is 0.02 s.
 
 ## Baseline drivers on the Beginner Oval (Phase 2)
 
@@ -113,3 +181,39 @@ Output on 2026-11-20: `[25.366666666666667, 23.333333333333332]`, i.e. 25.37 s f
 standing start, then 23.33 s for a flying lap. Exact values change whenever the physics
 or the autopilot changes; the test suite only checks that both laps complete and the
 second isn't slower.
+
+## PPO training throughput (Phase 3)
+
+Date: 2026-11-24. PPO with Stable-Baselines3's default hyperparameters (`n_steps` 2048,
+`batch_size` 64, `n_epochs` 10), 8 environments, 65,536 steps per measurement, CPU build of
+PyTorch 2.15.0, laptop on AC power. "Steps/s" includes network updates and the step-0 and
+final validation evaluations (1 episode each).
+
+**First attempt (flawed):** four settings were run one after another in a single Python
+process. `torch.set_num_threads(1)` is process-wide, so it leaked from the second run into
+the third, which was meant to use all threads. Only the first two rows are valid:
+
+| `vec_env` | PyTorch threads | Steps/s |
+|---|---|---|
+| dummy (one process) | 24 | 853 |
+| dummy (one process) | 1 | 860 |
+| subproc (8 processes) | ~~24~~ actually 1 (leaked) | 1,916 |
+| subproc (8 processes) | 1 | 1,125 |
+
+**Second attempt: each measurement in its own process, repeated twice:**
+
+| `vec_env` | PyTorch threads | Run 1 | Run 2 |
+|---|---|---|---|
+| subproc (8 processes) | 24 | 900 | 896 |
+| subproc (8 processes) | 1 | 1,075 | 873 |
+
+**Where the time goes** (one run, 8 subproc environments, 32,768 steps, measured with
+callbacks around SB3's rollout phase): 35.9 s total = **11.6 s collecting experience +
+24.3 s updating the network**.
+
+**Conclusion:** with default settings, PPO here is limited by the many small gradient
+updates (2,560 batches of 64 per rollout), not by the simulator. Process count and thread
+count make no difference that stands out from the noise (one unexplained 1,916 steps/s
+outlier, never reproduced). The obvious lever is `batch_size`, which also changes the
+learning itself, so it is left for a separate, measured experiment. The 1M-step training run uses `subproc`
+and default threads.
