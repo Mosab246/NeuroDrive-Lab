@@ -1,9 +1,10 @@
 """The playground: drive the car yourself, or watch a baseline driver.
 
-Drivers (C cycles through them). None of these is machine learning yet:
+Drivers (C cycles through them):
     keyboard          you
     heuristic         hand-written rules using only the 11-number sensor observation
     smoothed_random   random actions that drift smoothly
+    model             a trained model, with --model (the only learned driver)
     autopilot         pure pursuit along the centerline (scripted, privileged)
 
 Controls:
@@ -25,6 +26,7 @@ import sys
 import numpy as np
 import pygame
 
+from neurodrive.agents.base import Controller
 from neurodrive.agents.baselines import HeuristicController, SmoothedRandomController
 from neurodrive.agents.pure_pursuit import PurePursuitDriver
 from neurodrive.env.config import ObservationConfig, SensorConfig
@@ -76,6 +78,7 @@ class PlaygroundApp:
         size: tuple[int, int] = (1280, 800),
         frame_dt: float | None = None,
         fps: int = 60,
+        model_controller: Controller | None = None,
     ) -> None:
         """
         Args:
@@ -100,8 +103,10 @@ class PlaygroundApp:
         self.observer = ObservationBuilder(self.sim, sensors, ObservationConfig())
         self.heuristic = HeuristicController(angles_deg=sensors.angles_deg)
         self.random_driver = SmoothedRandomController(seed=0)
-        if controller not in DRIVERS:
-            raise ValueError(f"driver must be one of {', '.join(DRIVERS)}")
+        self.model_controller = model_controller
+        self.drivers = DRIVERS + (("model",) if model_controller is not None else ())
+        if controller not in self.drivers:
+            raise ValueError(f"driver must be one of {', '.join(self.drivers)}")
         self.driver_name = controller
         self.show_rays = False
         self.last_obs = self.observer.build()
@@ -142,6 +147,8 @@ class PlaygroundApp:
             action = self.heuristic.act(self.last_obs)
         elif name == "smoothed_random":
             action = self.random_driver.act(self.last_obs)
+        elif name == "model" and self.model_controller is not None:
+            action = self.model_controller.act(self.last_obs)
         else:
             action = self.keyboard.act(pygame.key.get_pressed())
         self.last_action = action
@@ -156,6 +163,7 @@ class PlaygroundApp:
             "autopilot": self.autopilot,
             "heuristic": self.heuristic,
             "smoothed_random": self.random_driver,
+            "model": self.model_controller,
         }[self.driver_name]
 
     def _handle_events(self) -> None:
@@ -171,8 +179,8 @@ class PlaygroundApp:
                 elif key == pygame.K_r:
                     self.reset()
                 elif key == pygame.K_c:
-                    i = DRIVERS.index(self.driver_name)
-                    self.driver_name = DRIVERS[(i + 1) % len(DRIVERS)]
+                    i = self.drivers.index(self.driver_name)
+                    self.driver_name = self.drivers[(i + 1) % len(self.drivers)]
                 elif key == pygame.K_v:
                     self.show_rays = not self.show_rays
                 elif key == pygame.K_z:

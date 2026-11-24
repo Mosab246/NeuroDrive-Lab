@@ -1,0 +1,36 @@
+# Tiny run to check the pipeline works end to end (not to learn anything).
+# PPO on the Beginner Oval. Hyperparameters are Stable-Baselines3's defaults: change them
+# only for a measured reason, and record why (docs/training-guide.md).
+name: ppo_smoke
+
+env:
+  track: beginner_oval
+  laps_to_finish: 1
+  max_episode_seconds: 90.0
+  perturb_start: true
+  observation:
+    route_features: false
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 512           # per environment, so one rollout = n_steps * n_envs steps
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99            # how much future reward counts (0.99 ~ a 100-step / 3 s horizon)
+  gae_lambda: 0.95
+  clip_range: 0.2        # the "proximal" part: how far one update may move the policy
+  ent_coef: 0.0
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  net_arch: [64, 64]     # two hidden layers of 64, separate for policy and value
+  log_std_init: 0.0      # initial exploration noise: std = e^0 = 1
+
+training:
+  total_timesteps: 4096
+  n_envs: 2
+  vec_env: dummy         # dummy = one process; subproc = one process per env
+  seed: 0
+  device: cpu            # small MLP: CPU is expected to be faster (measured in Phase 3)
+  eval_every_steps: 2048
+  eval_episodes: 2
+  checkpoint_every_steps: 2048

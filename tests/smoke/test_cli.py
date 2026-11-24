@@ -37,3 +37,17 @@ def test_evaluate_bad_config_is_one_line(tmp_path, capsys):
     bad.write_text("env:\n  max_episode_seconds: -5\n", encoding="utf-8")
     assert main(["evaluate", "--controller", "random", "--config", str(bad)]) == 2
     assert "max_episode_seconds" in capsys.readouterr().err
+
+
+def test_train_config_errors_are_one_line(tmp_path, capsys):
+    bad = tmp_path / "ppo.yaml"
+    bad.write_text("training:\n  n_envs: 0\n", encoding="utf-8")
+    assert main(["train", "ppo", "--config", str(bad)]) == 2
+    assert "n_envs" in capsys.readouterr().err
+
+
+def test_shipped_ppo_configs_are_valid():
+    from neurodrive.training.config import load_ppo_config
+
+    for name in ("default", "smoke"):
+        load_ppo_config(f"configs/ppo/{name}.yaml")

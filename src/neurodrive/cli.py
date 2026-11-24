@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Sequence
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from neurodrive import __version__
@@ -20,7 +21,31 @@ def _cmd_play(args: argparse.Namespace) -> int:
     track = load_track(args.track)
     from neurodrive.ui.app import PlaygroundApp  # imported lazily: pygame is UI-only
 
-    PlaygroundApp(track, controller=args.driver, size=(args.width, args.height)).run()
+    model = None
+    driver = args.driver
+    if args.model:
+        from neurodrive.agents.ppo_agent import PPOController
+
+        model = PPOController.load(args.model)
+        driver = "model"
+    PlaygroundApp(
+        track, controller=driver, size=(args.width, args.height), model_controller=model
+    ).run()
+    return 0
+
+
+def _cmd_train(args: argparse.Namespace) -> int:
+    from neurodrive.training.config import PPOExperiment, load_ppo_config
+    from neurodrive.training.ppo import train_ppo
+
+    exp = load_ppo_config(args.config) if args.config else PPOExperiment()
+    overrides = {"seed": args.seed, "total_timesteps": args.timesteps}
+    data = exp.model_dump()
+    data["training"].update({k: v for k, v in overrides.items() if v is not None})
+    if args.name:
+        data["name"] = args.name
+    exp = PPOExperiment.model_validate(data)
+    train_ppo(exp, runs_root=Path(args.runs_dir), resume_from=args.resume)
     return 0
 
 
@@ -69,21 +94,39 @@ def make_controller(name: str, env: DrivingEnv, seed: int) -> Controller:
 
 
 def _cmd_evaluate(args: argparse.Namespace) -> int:
-    from pathlib import Path
-
     from neurodrive.env.config import EnvConfig, load_env_config
     from neurodrive.env.driving_env import DrivingEnv
     from neurodrive.evaluation.evaluator import evaluate, write_results
     from neurodrive.evaluation.scenarios import scenario_seeds
     from neurodrive.experiments.metadata import run_metadata
 
-    config = load_env_config(args.config) if args.config else EnvConfig()
+    meta = None
+    if args.model:
+        from neurodrive.agents.ppo_agent import read_model_meta
+
+        meta = read_model_meta(Path(args.model))
+        config = (
+            load_env_config(args.config)
+            if args.config
+            else EnvConfig.model_validate(meta["env_config"])
+        )
+    else:
+        config = load_env_config(args.config) if args.config else EnvConfig()
     if args.track:
         config = config.model_copy(update={"track": args.track})
     env = DrivingEnv(config)
-    controller = make_controller(args.controller, env, args.seed)
+    controller: Controller
+    if meta is not None:
+        from neurodrive.agents.ppo_agent import PPOController, check_compatible
+
+        check_compatible(meta, env)
+        controller = PPOController.load(args.model)
+        label = f"{meta.get('experiment', 'model')}_{meta.get('label', '').replace('@', '-')}"
+    else:
+        controller = make_controller(args.controller, env, args.seed)
+        label = args.controller
     seeds = scenario_seeds(args.split, args.episodes)
-    out = Path(args.out or f"runs/eval/{args.controller}_{config.track}_{args.split}")
+    out = Path(args.out or f"runs/eval/{label}_{config.track}_{args.split}")
 
     def show(i: int, n: int) -> None:
         if i == n or i % max(1, n // 10) == 0:
@@ -97,6 +140,8 @@ def _cmd_evaluate(args: argparse.Namespace) -> int:
         "split": args.split,
         "scenario_seeds": [seeds[0], seeds[-1]],
         "controller_seed": args.seed,
+        "model": str(args.model) if args.model else None,
+        "model_meta": meta,
     }
     s = write_results(records, out, meta)
     lo, hi = s["completion_rate_ci95"]
@@ -138,6 +183,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     play.add_argument("--width", type=int, default=1280)
     play.add_argument("--height", type=int, default=800)
+    play.add_argument("--model", default=None, help="drive with a trained model .zip")
     play.set_defaults(func=_cmd_play)
 
     bench = sub.add_parser("bench-sim", help="measure headless simulation steps per second")
@@ -154,7 +200,9 @@ def build_parser() -> argparse.ArgumentParser:
     lst.set_defaults(func=_cmd_list_tracks)
 
     ev = sub.add_parser("evaluate", help="evaluate a controller on fixed scenarios")
-    ev.add_argument("--controller", choices=CONTROLLERS, required=True)
+    who = ev.add_mutually_exclusive_group(required=True)
+    who.add_argument("--controller", choices=CONTROLLERS, help="a baseline driver")
+    who.add_argument("--model", help="a trained model .zip (uses its training env config)")
     ev.add_argument("--track", default=None, help="override the config's track")
     ev.add_argument("--split", choices=["validation", "test"], default="validation")
     ev.add_argument("--episodes", type=int, default=50)
@@ -162,6 +210,16 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--seed", type=int, default=0, help="seed for random controllers")
     ev.add_argument("--out", default=None, help="output folder (default under runs/eval/)")
     ev.set_defaults(func=_cmd_evaluate)
+
+    tr = sub.add_parser("train", help="train a learning agent")
+    tr.add_argument("algorithm", choices=["ppo"])
+    tr.add_argument("--config", default=None, help="experiment YAML, e.g. configs/ppo/default.yaml")
+    tr.add_argument("--seed", type=int, default=None, help="override training.seed")
+    tr.add_argument("--timesteps", type=int, default=None, help="override total_timesteps")
+    tr.add_argument("--name", default=None, help="override the experiment name")
+    tr.add_argument("--runs-dir", default="runs/ppo", help="parent folder for run folders")
+    tr.add_argument("--resume", default=None, help="continue from a checkpoint .zip")
+    tr.set_defaults(func=_cmd_train)
     return p
 
 
@@ -169,7 +227,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return int(args.func(args))
-    except (TrackError, ConfigError, ValueError) as exc:
+    except (TrackError, ConfigError, ValueError, FileNotFoundError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     except KeyboardInterrupt:
