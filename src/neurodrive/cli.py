@@ -24,9 +24,9 @@ def _cmd_play(args: argparse.Namespace) -> int:
     model = None
     driver = args.driver
     if args.model:
-        from neurodrive.agents.ppo_agent import PPOController
+        from neurodrive.agents.model_io import load_controller
 
-        model = PPOController.load(args.model)
+        model = load_controller(args.model)
         driver = "model"
     PlaygroundApp(
         track, controller=driver, size=(args.width, args.height), model_controller=model
@@ -35,9 +35,29 @@ def _cmd_play(args: argparse.Namespace) -> int:
 
 
 def _cmd_train(args: argparse.Namespace) -> int:
+    runs_dir = Path(args.runs_dir or f"runs/{args.algorithm}")
+    if args.algorithm == "neat":
+        from neurodrive.training.config import NEATExperiment, load_neat_config
+        from neurodrive.training.neat_trainer import train_neat
+
+        if args.timesteps is not None:
+            raise ValueError("--timesteps is for PPO; NEAT uses --generations")
+        nexp = load_neat_config(args.config) if args.config else NEATExperiment()
+        ndata = nexp.model_dump()
+        overrides = {"seed": args.seed, "generations": args.generations}
+        ndata["neat"].update({k: v for k, v in overrides.items() if v is not None})
+        if args.name:
+            ndata["name"] = args.name
+        train_neat(
+            NEATExperiment.model_validate(ndata), runs_root=runs_dir, resume_from=args.resume
+        )
+        return 0
+
     from neurodrive.training.config import PPOExperiment, load_ppo_config
     from neurodrive.training.ppo import train_ppo
 
+    if args.generations is not None:
+        raise ValueError("--generations is for NEAT; PPO uses --timesteps")
     exp = load_ppo_config(args.config) if args.config else PPOExperiment()
     overrides = {"seed": args.seed, "total_timesteps": args.timesteps}
     data = exp.model_dump()
@@ -45,7 +65,27 @@ def _cmd_train(args: argparse.Namespace) -> int:
     if args.name:
         data["name"] = args.name
     exp = PPOExperiment.model_validate(data)
-    train_ppo(exp, runs_root=Path(args.runs_dir), resume_from=args.resume)
+    train_ppo(exp, runs_root=runs_dir, resume_from=args.resume)
+    return 0
+
+
+def _cmd_show_network(args: argparse.Namespace) -> int:
+    from neurodrive.agents.model_io import ModelError, load_controller
+    from neurodrive.agents.neat_agent import NEATController
+    from neurodrive.viz.network import draw_network
+
+    controller = load_controller(args.model)
+    if not isinstance(controller, NEATController):
+        raise ModelError("show-network draws NEAT networks; this model is not one")
+    out = Path(args.out or Path(args.model).with_suffix(".png"))
+    draw_network(
+        controller.genome,
+        controller.config,
+        out,
+        input_names=controller.meta.get("observation", {}).get("names"),
+        title=controller.name,
+    )
+    print(f"wrote {out}")
     return 0
 
 
@@ -102,7 +142,7 @@ def _cmd_evaluate(args: argparse.Namespace) -> int:
 
     meta = None
     if args.model:
-        from neurodrive.agents.ppo_agent import read_model_meta
+        from neurodrive.agents.model_io import read_model_meta
 
         meta = read_model_meta(Path(args.model))
         config = (
@@ -117,10 +157,10 @@ def _cmd_evaluate(args: argparse.Namespace) -> int:
     env = DrivingEnv(config)
     controller: Controller
     if meta is not None:
-        from neurodrive.agents.ppo_agent import PPOController, check_compatible
+        from neurodrive.agents.model_io import check_compatible, load_controller
 
         check_compatible(meta, env)
-        controller = PPOController.load(args.model)
+        controller = load_controller(args.model)
         label = f"{meta.get('experiment', 'model')}_{meta.get('label', '').replace('@', '-')}"
     else:
         controller = make_controller(args.controller, env, args.seed)
@@ -212,14 +252,20 @@ def build_parser() -> argparse.ArgumentParser:
     ev.set_defaults(func=_cmd_evaluate)
 
     tr = sub.add_parser("train", help="train a learning agent")
-    tr.add_argument("algorithm", choices=["ppo"])
+    tr.add_argument("algorithm", choices=["ppo", "neat"])
     tr.add_argument("--config", default=None, help="experiment YAML, e.g. configs/ppo/default.yaml")
+    tr.add_argument("--generations", type=int, default=None, help="NEAT: override generations")
     tr.add_argument("--seed", type=int, default=None, help="override training.seed")
     tr.add_argument("--timesteps", type=int, default=None, help="override total_timesteps")
     tr.add_argument("--name", default=None, help="override the experiment name")
-    tr.add_argument("--runs-dir", default="runs/ppo", help="parent folder for run folders")
-    tr.add_argument("--resume", default=None, help="continue from a checkpoint .zip")
+    tr.add_argument("--runs-dir", default=None, help="parent folder (default runs/<algo>)")
+    tr.add_argument("--resume", default=None, help="continue from a checkpoint file")
     tr.set_defaults(func=_cmd_train)
+
+    sn = sub.add_parser("show-network", help="draw a NEAT model's network to a PNG")
+    sn.add_argument("model", help="a NEAT model .pkl")
+    sn.add_argument("--out", default=None, help="PNG path (default: next to the model)")
+    sn.set_defaults(func=_cmd_show_network)
     return p
 
 

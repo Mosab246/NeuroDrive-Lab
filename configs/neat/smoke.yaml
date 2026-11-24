@@ -1,0 +1,23 @@
+# Tiny run to check the NEAT pipeline (not to learn anything). Genome rules (mutation rates etc.) live in default.ini.
+name: neat_smoke
+
+env:
+  track: beginner_oval
+  laps_to_finish: 1
+  max_episode_seconds: 90.0
+  perturb_start: true
+  observation:
+    route_features: false   # must match num_inputs in the .ini (11 without route features)
+
+neat:
+  neat_config: configs/neat/default.ini
+  pop_size: 12
+  generations: 3
+  max_env_steps: null       # e.g. 1000000 to stop at PPO's budget
+  scenarios_per_genome: 2   # every genome drives the same 2 starts in a generation
+  speed_weight: 1.0         # fitness bonus per second a lap finishes under 90 s
+  seed: 0
+  workers: 0                # parallel processes for scoring genomes (0 = none)
+  validate_every: 2
+  validation_episodes: 2
+  checkpoint_every: 2

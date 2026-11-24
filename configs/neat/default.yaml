@@ -1,0 +1,23 @@
+# NEAT on the Beginner Oval. Genome rules (mutation rates etc.) live in default.ini.
+name: neat_oval
+
+env:
+  track: beginner_oval
+  laps_to_finish: 1
+  max_episode_seconds: 90.0
+  perturb_start: true
+  observation:
+    route_features: false   # must match num_inputs in the .ini (11 without route features)
+
+neat:
+  neat_config: configs/neat/default.ini
+  pop_size: 150
+  generations: 100
+  max_env_steps: null       # e.g. 1000000 to stop at PPO's budget
+  scenarios_per_genome: 2   # every genome drives the same 2 starts in a generation
+  speed_weight: 1.0         # fitness bonus per second a lap finishes under 90 s
+  seed: 0
+  workers: 12               # parallel processes for scoring genomes (0 = none)
+  validate_every: 5
+  validation_episodes: 10
+  checkpoint_every: 10
