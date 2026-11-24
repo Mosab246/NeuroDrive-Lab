@@ -42,6 +42,11 @@ class PPOTraining(_Strict):
     eval_every_steps: int = Field(default=100_000, ge=1)
     eval_episodes: int = Field(default=10, ge=1)
     checkpoint_every_steps: int = Field(default=100_000, ge=1)
+    validation_tracks: tuple[str, ...] | None = Field(
+        default=None,
+        description="Tracks for checkpoint selection (split 'validation' or 'train'). "
+        "None = the training tracks, with validation scenario seeds.",
+    )
 
 
 class PPOExperiment(_Strict):
@@ -99,6 +104,11 @@ class NEATSettings(_Strict):
     validate_every: int = Field(default=5, ge=1, description="Generations between validations.")
     validation_episodes: int = Field(default=10, ge=1)
     checkpoint_every: int = Field(default=10, ge=1, description="Generations between saves.")
+    validation_tracks: tuple[str, ...] | None = Field(
+        default=None,
+        description="Tracks for champion selection (split 'validation' or 'train'). "
+        "None = the training tracks, with validation scenario seeds.",
+    )
 
 
 class NEATExperiment(_Strict):

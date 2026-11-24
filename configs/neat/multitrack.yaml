@@ -1,0 +1,25 @@
+# NEAT on all three training tracks: every genome drives each of them once per generation
+# (3 episodes), from random start points shared by the whole generation. Champions are
+# chosen on the separate validation track.
+name: neat_multitrack
+
+env:
+  tracks: [beginner_oval, curved_circuit, technical_circuit]   # split: train only
+  random_start: true
+  laps_to_finish: 1
+  max_episode_seconds: 90.0
+  perturb_start: true
+
+neat:
+  neat_config: configs/neat/multitrack.ini
+  pop_size: 150
+  generations: 60
+  max_env_steps: null
+  scenarios_per_genome: 1     # per track, so 3 episodes per genome per generation
+  speed_weight: 1.0
+  seed: 0
+  workers: 12
+  validate_every: 5
+  validation_episodes: 10
+  checkpoint_every: 10
+  validation_tracks: [validation_circuit]

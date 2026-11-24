@@ -14,8 +14,19 @@ from neurodrive.env.driving_env import DrivingEnv
 from neurodrive.evaluation.metrics import EpisodeRecord, summarize
 
 
-def run_episode(env: DrivingEnv, controller: Controller, seed: int) -> EpisodeRecord:
-    obs, info = env.reset(seed=seed, options={"perturb": True})
+def run_episode(
+    env: DrivingEnv,
+    controller: Controller,
+    seed: int,
+    track: str | None = None,
+    random_start: bool | None = None,
+) -> EpisodeRecord:
+    options: dict[str, object] = {"perturb": True}
+    if track is not None:
+        options["track"] = track
+    if random_start is not None:
+        options["random_start"] = random_start
+    obs, info = env.reset(seed=seed, options=options)
     controller.reset(seed)
     speed_sum = 0.0
     while True:
@@ -45,12 +56,17 @@ def evaluate(
     controller: Controller,
     seeds: Sequence[int],
     progress: Callable[[int, int], None] | None = None,
+    tracks: Sequence[str] | None = None,
+    random_start: bool | None = None,
 ) -> list[EpisodeRecord]:
+    """Run ``controller`` on every scenario seed, on every track in ``tracks`` (default: the
+    environment's own track choice per seed). Every (track, seed) pair is one episode."""
+    jobs = [(t, s) for t in tracks for s in seeds] if tracks else [(None, s) for s in seeds]
     records = []
-    for i, seed in enumerate(seeds):
-        records.append(run_episode(env, controller, seed))
+    for i, (track, seed) in enumerate(jobs):
+        records.append(run_episode(env, controller, seed, track, random_start))
         if progress is not None:
-            progress(i + 1, len(seeds))
+            progress(i + 1, len(jobs))
     return records
 
 

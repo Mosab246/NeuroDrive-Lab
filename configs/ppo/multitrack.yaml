@@ -1,0 +1,23 @@
+# PPO trained on all three training tracks (one is picked per episode), from random start
+# points, with checkpoints chosen on the separate validation track. Same SB3 default
+# hyperparameters as configs/ppo/default.yaml; only the environment and budget differ.
+name: ppo_multitrack
+
+env:
+  tracks: [beginner_oval, curved_circuit, technical_circuit]   # split: train only
+  random_start: true
+  laps_to_finish: 1
+  max_episode_seconds: 90.0
+  perturb_start: true
+
+training:
+  total_timesteps: 2000000
+  n_envs: 8
+  vec_env: subproc
+  seed: 0
+  device: cpu
+  torch_threads: 4       # leaves CPU for NEAT if both run at once
+  eval_every_steps: 100000
+  eval_episodes: 10      # per validation track
+  checkpoint_every_steps: 100000
+  validation_tracks: [validation_circuit]

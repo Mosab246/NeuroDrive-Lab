@@ -44,6 +44,7 @@ from neurodrive.evaluation.evaluator import evaluate
 from neurodrive.evaluation.metrics import selection_key, summarize
 from neurodrive.evaluation.scenarios import scenario_seeds
 from neurodrive.experiments.metadata import run_metadata
+from neurodrive.experiments.splits import check_track_splits
 from neurodrive.training.config import PPOExperiment
 
 EVAL_FIELDS = (
@@ -106,7 +107,10 @@ class EvalAndCheckpointCallback(BaseCallback):
         self.ckpt_dir = run_dir / "checkpoints"
         self.ckpt_dir.mkdir(parents=True, exist_ok=True)
         self.obs_spec = obs_spec
-        self.eval_env = DrivingEnv(exp.env)
+        self.val_tracks = exp.training.validation_tracks
+        self.eval_env = DrivingEnv(
+            exp.env.model_copy(update={"tracks": self.val_tracks}) if self.val_tracks else exp.env
+        )
         self.seeds = scenario_seeds("validation", exp.training.eval_episodes)
         self.best_key: tuple[float, float, float] | None = None
         self.best_step: int | None = None
@@ -165,7 +169,9 @@ class EvalAndCheckpointCallback(BaseCallback):
     def _evaluate(self, step: int) -> None:
         self.last_eval_step = step
         controller = PPOController(self.model, name=f"ppo@{step}", meta={})
-        summary: dict[str, Any] = summarize(evaluate(self.eval_env, controller, self.seeds))
+        summary: dict[str, Any] = summarize(
+            evaluate(self.eval_env, controller, self.seeds, tracks=self.val_tracks)
+        )
         self.last_summary = summary
         row = {k: summary.get(k) for k in EVAL_FIELDS if k in summary}
         row["timesteps"] = step
@@ -210,6 +216,7 @@ def train_ppo(
 ) -> Path:
     """Train according to ``exp``; returns the run directory."""
     t = exp.training
+    check_track_splits(exp.env, t.validation_tracks)
     if t.torch_threads is not None:
         torch.set_num_threads(t.torch_threads)
     set_random_seed(t.seed)

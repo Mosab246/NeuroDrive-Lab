@@ -6,7 +6,7 @@ import argparse
 import sys
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from neurodrive import __version__
 from neurodrive.env.config import ConfigError
@@ -153,8 +153,12 @@ def _cmd_evaluate(args: argparse.Namespace) -> int:
     else:
         config = load_env_config(args.config) if args.config else EnvConfig()
     if args.track:
-        config = config.model_copy(update={"track": args.track})
-    env = DrivingEnv(config)
+        config = config.model_copy(update={"track": args.track, "tracks": None})
+    track_list = expand_tracks(args.tracks) if args.tracks else None
+    random_start = {"random": True, "line": False}.get(args.start or "")
+    env = DrivingEnv(
+        config.model_copy(update={"tracks": tuple(track_list)}) if track_list else config
+    )
     controller: Controller
     if meta is not None:
         from neurodrive.agents.model_io import check_compatible, load_controller
@@ -166,24 +170,42 @@ def _cmd_evaluate(args: argparse.Namespace) -> int:
         controller = make_controller(args.controller, env, args.seed)
         label = args.controller
     seeds = scenario_seeds(args.split, args.episodes)
-    out = Path(args.out or f"runs/eval/{label}_{config.track}_{args.split}")
+    where = "multi" if track_list else config.track
+    out = Path(args.out or f"runs/eval/{label}_{where}_{args.split}")
 
     def show(i: int, n: int) -> None:
         if i == n or i % max(1, n // 10) == 0:
             print(f"  {i}/{n} episodes", flush=True)
 
-    print(f"evaluating {controller.name} [{controller.kind}] on {config.track} ({args.split})")
-    records = evaluate(env, controller, seeds, progress=show)
+    on = f"{len(track_list)} tracks" if track_list else config.track
+    print(f"evaluating {controller.name} [{controller.kind}] on {on} ({args.split} scenarios)")
+    records = evaluate(
+        env, controller, seeds, progress=show, tracks=track_list, random_start=random_start
+    )
     meta = run_metadata() | {
         "env_config": config.model_dump(mode="json"),
         "observation": env.obs_builder.spec.to_dict(),
         "split": args.split,
+        "tracks": track_list or [config.track],
+        "random_start": random_start,
         "scenario_seeds": [seeds[0], seeds[-1]],
         "controller_seed": args.seed,
         "model": str(args.model) if args.model else None,
         "model_meta": meta,
     }
     s = write_results(records, out, meta)
+    if track_list:
+        from neurodrive.evaluation.metrics import summarize
+
+        print(f"{'track':<20} {'laps':>9}  {'lap time':>9}  {'progress':>8}")
+        for tid in track_list:
+            t: dict[str, Any] = summarize([r for r in records if r.track == tid])
+            lap_t = f"{t['lap_time_mean']:.2f} s" if t["lap_time_n"] else "-"
+            print(
+                f"{tid:<20} {t['completed']:>4}/{t['episodes']:<4} {lap_t:>9}  "
+                f"{100 * t['mean_lap_fraction']:7.1f}%"
+            )
+        print("overall:")
     lo, hi = s["completion_rate_ci95"]
     lap = (
         f"{s['lap_time_mean']:.2f} s mean, {s['lap_time_best']:.2f} s best "
@@ -201,6 +223,29 @@ def _cmd_evaluate(args: argparse.Namespace) -> int:
         f"wrote {out / 'episodes.csv'} and {out / 'summary.json'}"
     )
     return 0
+
+
+def expand_tracks(spec: str) -> list[str]:
+    """Comma-separated track ids, plus shortcuts: 'split:test' = every built-in track in that
+    split, 'proc:20' = procedural tracks proc_0 .. proc_19."""
+    from neurodrive.sim.track import load_track
+
+    out: list[str] = []
+    for part in [p.strip() for p in spec.split(",") if p.strip()]:
+        if part.startswith("split:"):
+            split = part[6:]
+            ids = [t for t in builtin_track_ids() if load_track(t).spec.split == split]
+            if not ids:
+                raise ValueError(f"no built-in tracks with split '{split}'")
+            out += ids
+        elif part.startswith("proc:"):
+            n = int(part[5:])
+            if n < 1:
+                raise ValueError("proc:N needs N >= 1")
+            out += [f"proc_{i}" for i in range(n)]
+        else:
+            out.append(part)
+    return list(dict.fromkeys(out))
 
 
 def _cmd_list_tracks(_: argparse.Namespace) -> int:
@@ -244,6 +289,14 @@ def build_parser() -> argparse.ArgumentParser:
     who.add_argument("--controller", choices=CONTROLLERS, help="a baseline driver")
     who.add_argument("--model", help="a trained model .zip (uses its training env config)")
     ev.add_argument("--track", default=None, help="override the config's track")
+    ev.add_argument(
+        "--tracks",
+        default=None,
+        help="evaluate on several tracks: ids, 'split:test', 'proc:20' (comma-separated)",
+    )
+    ev.add_argument(
+        "--start", choices=["line", "random"], default=None, help="start position (default: config)"
+    )
     ev.add_argument("--split", choices=["validation", "test"], default="validation")
     ev.add_argument("--episodes", type=int, default=50)
     ev.add_argument("--config", default=None, help="environment YAML (default: built-in)")

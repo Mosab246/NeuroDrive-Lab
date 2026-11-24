@@ -47,7 +47,8 @@ def test_train_config_errors_are_one_line(tmp_path, capsys):
 
 
 def test_shipped_ppo_configs_are_valid():
-    from neurodrive.training.config import load_ppo_config
+    from neurodrive.training.config import load_neat_config, load_ppo_config
 
-    for name in ("default", "smoke"):
+    for name in ("default", "smoke", "multitrack"):
         load_ppo_config(f"configs/ppo/{name}.yaml")
+        load_neat_config(f"configs/neat/{name}.yaml")

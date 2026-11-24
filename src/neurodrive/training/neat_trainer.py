@@ -46,6 +46,7 @@ from neurodrive.evaluation.evaluator import evaluate
 from neurodrive.evaluation.metrics import selection_key, summarize
 from neurodrive.evaluation.scenarios import scenario_seeds
 from neurodrive.experiments.metadata import run_metadata
+from neurodrive.experiments.splits import check_track_splits
 from neurodrive.training.config import NEATExperiment
 
 GEN_FIELDS = (
@@ -96,14 +97,21 @@ def _init_worker(env_config: dict[str, Any], neat_config: neat.Config, speed: fl
     _WORKER["speed"] = speed
 
 
-def _score_genome(task: tuple[int, Any, list[int]]) -> tuple[int, float, int, int, int, float]:
-    """Returns (genome key, fitness, env steps, laps completed, crashes, best lap time)."""
-    key, genome, seeds = task
+def _score_genome(
+    task: tuple[int, Any, list[tuple[str | None, int]]],
+) -> tuple[int, float, int, int, int, float]:
+    """Drive every (track, seed) scenario; fitness is the average over them.
+
+    Returns (genome key, fitness, env steps, laps completed, crashes, best lap time)."""
+    key, genome, scenarios = task
     env: DrivingEnv = _WORKER["env"]
     net = neat.nn.FeedForwardNetwork.create(genome, _WORKER["config"])
     total, steps, laps, crashes, best_lap = 0.0, 0, 0, 0, float("inf")
-    for seed in seeds:
-        obs, _ = env.reset(seed=seed, options={"perturb": True})
+    for track, seed in scenarios:
+        options: dict[str, Any] = {"perturb": True}
+        if track is not None:
+            options["track"] = track
+        obs, _ = env.reset(seed=seed, options=options)
         while True:
             action = np.clip(np.asarray(net.activate(obs.tolist())), -1.0, 1.0)
             obs, _, terminated, truncated, info = env.step(action)
@@ -116,7 +124,7 @@ def _score_genome(task: tuple[int, Any, list[int]]) -> tuple[int, float, int, in
             best_lap = min(best_lap, float(info["lap_times"][0]))
         elif info["termination_reason"] == "collision":
             crashes += 1
-    return key, total / len(seeds), steps, laps, crashes, best_lap
+    return key, total / len(scenarios), steps, laps, crashes, best_lap
 
 
 class GenerationEvaluator:
@@ -134,7 +142,11 @@ class GenerationEvaluator:
         self.best_key: tuple[float, float, float] | None = None
         self.best_generation: int | None = None
         self.obs_spec: dict[str, Any] = DrivingEnv(exp.env).obs_builder.spec.to_dict()
-        self.val_env = DrivingEnv(exp.env)
+        self.train_tracks: tuple[str, ...] = tuple(exp.env.tracks or (exp.env.track,))
+        self.val_tracks = exp.neat.validation_tracks
+        self.val_env = DrivingEnv(
+            exp.env.model_copy(update={"tracks": self.val_tracks}) if self.val_tracks else exp.env
+        )
         self.val_seeds = scenario_seeds("validation", exp.neat.validation_episodes)
         (run_dir / "champions").mkdir(exist_ok=True)
         self.pool: Any = None
@@ -187,7 +199,12 @@ class GenerationEvaluator:
         assert self.population is not None
         gen = self.population.generation
         seeds = generation_seeds(self.exp.neat.seed, gen, self.exp.neat.scenarios_per_genome)
-        tasks = [(key, genome, seeds) for key, genome in genomes]
+        # Multi-track: every genome drives every training track, from the same starts.
+        tracks: tuple[str | None, ...] = (
+            self.train_tracks if len(self.train_tracks) > 1 else (None,)
+        )
+        scenarios = [(t, s) for t in tracks for s in seeds]
+        tasks = [(key, genome, scenarios) for key, genome in genomes]
         if self.pool is not None:
             results = self.pool.map(_score_genome, tasks, chunksize=max(1, len(tasks) // 64))
         else:
@@ -204,7 +221,7 @@ class GenerationEvaluator:
             laps += n_laps
             crashes += n_crash
             best_lap = min(best_lap, lap)
-        n_eps = len(results) * len(seeds)
+        n_eps = len(results) * len(scenarios)
         self.steps_total += gen_steps
         self.episodes_total += n_eps
 
@@ -252,7 +269,9 @@ class GenerationEvaluator:
 
     def validate(self, genome: Any, gen: int) -> dict[str, Any]:
         controller = NEATController(genome, self.config, name=f"neat gen{gen}")
-        summary: dict[str, Any] = summarize(evaluate(self.val_env, controller, self.val_seeds))
+        summary: dict[str, Any] = summarize(
+            evaluate(self.val_env, controller, self.val_seeds, tracks=self.val_tracks)
+        )
         path = self.run_dir / "eval_history.csv"
         fields = [
             "generation",
@@ -319,6 +338,7 @@ def train_neat(
     log: Callable[[str], None] = print,
 ) -> Path:
     s = exp.neat
+    check_track_splits(exp.env, s.validation_tracks)
     if resume_from is not None:
         resume_from = Path(resume_from)
         if not resume_from.is_file():
