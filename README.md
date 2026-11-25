@@ -1,210 +1,244 @@
+<div align="center">
+
 # NeuroDrive Lab
 
+**A 2D driving simulator where cars learn to drive by themselves, built as a controlled
+experiment comparing reinforcement learning (PPO) with neuroevolution (NEAT).**
+
 [![tests](https://github.com/Mosab246/NeuroDrive-Lab/actions/workflows/ci.yml/badge.svg)](https://github.com/Mosab246/NeuroDrive-Lab/actions/workflows/ci.yml)
-
-A 2D top-down driving simulator built as a controlled experiment: can a car learn to drive
-by itself, and how do **reinforcement learning (PPO)** and **neuroevolution (NEAT)** compare
-when they get the same car, sensors, tracks and budget?
-
-> **Status: Phase 7 of 8: interactive lab** (`neurodrive demo` starts a ghost race).
-> Benchmark result: trained on three tracks with the same budget (1M environment
-> steps, 3 seeds each) and tested on 26 tracks, **PPO drives faster
-> (22.30 s vs 23.54 s) but NEAT is more reliable (98.5% vs 92.6% of laps completed)**;
-> NEAT also learns in a fraction of the wall-clock time. Both beat the scripted drivers.
-> See [results](docs/results.md) and the
-> [benchmark report](results/benchmark/ppo_vs_neat_1m/report.md).
+![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue)
+![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ![Ghost race: trained PPO and NEAT drivers against scripted ones](docs/images/demo-ghost-race.gif)
 
-*`neurodrive demo`: the six benchmark models (3 PPO, 3 NEAT seeds) and two scripted
-drivers on a track none of them trained on, at 2x speed.*
+*Six trained drivers (3 PPO, 3 NEAT) and two scripted drivers on a track none of them saw
+during training. 2x speed.*
 
-## What exists today
+</div>
 
-- Deterministic 2D car physics (kinematic bicycle model with steering rate and grip limits)
-- Tracks defined as YAML files (centerline + width), validated on load
-- Progress, ordered checkpoints, lap counting and lap timing that can't be cheated by
-  shortcuts, reversing over the line or rocking over a gate
-- Headless simulation and a throughput benchmark
-- 9 raycast distance sensors and an 11-number observation vector
-- A Gymnasium environment (`NeuroDrive-v0`) that passes the Gymnasium and
-  Stable-Baselines3 checkers, with a reward designed against known exploits
-- Baseline drivers: random, smoothed random, a sensors-only heuristic, and a
-  privileged scripted autopilot
-- An evaluator: fixed shared scenarios, one CSV row per episode, summaries with
-  confidence intervals
-- A pygame-ce playground: keyboard driving, baseline drivers, sensor-ray overlay, pause,
-  0.25×–8× speed, follow camera
-- PPO training (Stable-Baselines3): configs, seeds, checkpoints from step 0, TensorBoard,
-  validation-based checkpoint selection, resume, and trained-model playback
-- NEAT neuroevolution (neat-python): parallel scoring, per-generation champions and
-  statistics, validation-based selection, reproducible runs, evolved-network drawings
-- 6 tracks (train / validation / test, both directions) plus unlimited procedural test
-  tracks; random start points; multi-track training; split rules enforced in code
-- A resumable PPO-vs-NEAT benchmark: equal env-step budgets, several seeds, identical
-  test scenarios, and a generated report with spread across seeds and charts
-- Replays (verified to re-simulate exactly), ghost races, a learning timeline, and network
-  views in a replay viewer that holds 60 FPS with 8 cars
-- 197 automated tests
+---
 
-Not built yet: a live view attached to a running training job (by design: see the
-architecture review). See
-[docs/architecture-review.md](docs/architecture-review.md).
+## Overview
 
-## Install (Windows PowerShell)
+NeuroDrive Lab answers one question with care: **given the same car, the same sensors, the
+same tracks and the same training budget, how do a gradient-based reinforcement learner
+and an evolutionary algorithm compare at learning to drive?**
 
-Requires [uv](https://docs.astral.sh/uv/) and git. uv downloads Python 3.12 if needed;
-3.12 and 3.13 are tested. About 0.8 GB once installed (PyTorch CPU build included); no GPU
-needed.
+Everything needed to answer that honestly is built in: a deterministic physics simulator,
+a Gymnasium environment, two learning pipelines, scripted baselines, strict
+train/validation/test track splits, a multi-seed benchmark with confidence intervals, and
+a replay viewer to see what the numbers mean.
+
+| | |
+|---|---|
+| **Algorithms** | PPO (Stable-Baselines3), NEAT (neat-python) |
+| **Agent inputs** | 9 distance rays, speed, steering angle (no map, no track knowledge) |
+| **Agent outputs** | Steering and throttle/brake, continuous in [-1, 1] |
+| **Tracks** | 6 hand-built (train / validation / test, both directions) + unlimited procedural |
+| **Evaluation** | 26 tracks x 20 fixed scenarios with random starts, 3 seeds per algorithm |
+| **Quality** | 232 automated tests, CI on Windows and Linux, fully reproducible runs |
+
+## Key results
+
+### 1. Equal budget: PPO is faster, NEAT is more reliable
+
+Both algorithms trained on three tracks for **1,000,000 environment steps**, 3 seeds each,
+then tested on 26 tracks (22 never seen) with 20 scenarios per track.
+
+| | PPO | NEAT | Scripted autopilot* | Sensor heuristic |
+|---|---|---|---|---|
+| Laps completed | 92.6% ± 9.9 | **98.5% ± 1.8** | 100% | 100% |
+| Mean lap time | **22.30 s ± 0.28** | 23.54 s ± 0.83 | 28.02 s | 29.56 s |
+| Training time (CPU) | ~17 min | **~2 min** | n/a | n/a |
+
+<sub>Mean ± standard deviation across 3 seeds. Pooled 95% confidence intervals for laps
+completed do not overlap (PPO 91.2-93.8%, NEAT 97.7-99.0%). *The autopilot reads the
+track geometry directly, which the learning agents never get. Full report:
+[results/benchmark/ppo_vs_neat_1m](results/benchmark/ppo_vs_neat_1m/report.md).</sub>
+
+- PPO's mean lap time was faster on **all 26 tracks**, but one of its three seeds failed
+  every scenario on four procedural tracks. Failures are per corner shape, not random.
+- Every one of the six trained runs lapped faster than both hand-written drivers (by
+  3.6 s or more per lap).
+
+### 2. An earlier "win" for NEAT disappeared under a fair budget
+
+Before budgets were matched, NEAT looked faster (21.63 s vs 22.50 s). It had used about
+**6x more environment steps**. With equal steps the ranking reversed. Comparing learning
+methods without equal budgets and multiple seeds produces misleading conclusions; the
+benchmark runner enforces both.
+
+### 3. Training on one track overfits, in a very specific way
+
+| Trained on | Laps completed, 26 tracks | Counter-clockwise tracks | Clockwise tracks |
+|---|---|---|---|
+| Oval only (PPO) | 63.7% | 95% | **4%** |
+| Oval only (NEAT) | 37.5% | 57% | **0%** |
+| 3 varied tracks (PPO / NEAT) | **100% / 100%** | 100% | 100% |
+
+The oval only turns left, so the agents never learned to turn right. Training on three
+tracks in both directions fixed it completely, including on 22 tracks never seen in
+training.
+
+### 4. Evolution finds tiny solutions
+
+The best NEAT driver of one benchmark seed has **no hidden neurons**: 16 direct
+connections from the sensors to the controls, and it laps every test track. The PPO
+policy has 5,058 weights.
+
+<p align="center">
+  <img src="docs/images/phase7-neat-network.png" width="80%" alt="The evolved NEAT network, shown in the replay viewer">
+</p>
+
+All numbers come from logged runs with the exact commands, dates and hardware in
+[docs/results.md](docs/results.md).
+
+## Features
+
+**Simulation**
+- Kinematic bicycle model with steering-rate and grip limits; optional **dynamic
+  tyre-slip model** (understeer, oversteer, spins; friction circle; traction control)
+- Tracks as YAML centerline + width, validated on load; procedural track generator
+- Exact collision (oriented car rectangle vs. track corridor) and cheat-proof lap counting
+  (ordered checkpoints; no shortcuts, reversing over the line, or gate rocking)
+- Deterministic fixed time step: every run and replay can be reproduced exactly
+
+**Learning**
+- Gymnasium environment (`NeuroDrive-v0`) passing the Gymnasium and SB3 environment checkers
+- Reward designed against known exploits; `terminated` vs. `truncated` handled correctly
+- PPO and NEAT pipelines with seeds, checkpoints, resume, TensorBoard / statistics, and
+  checkpoint selection on a separate validation track
+- Train / validation / test track splits **enforced in code**
+
+**Evaluation**
+- Fixed scenario seeds shared by every driver; per-episode CSVs; Wilson confidence intervals
+- Resumable multi-seed benchmark with equal environment-step budgets and a generated report
+
+**Visualization and racing**
+- Interactive playground (drive yourself or watch any driver, sensor-ray overlay)
+- Replay viewer: ghost races, learning timelines, evolved-network and policy views, 60 FPS
+  with 8 cars
+- **Real multi-car races**: starting grid, cars see each other with their sensors and
+  collide with momentum exchange; championship mode with F1 scoring
+- Optional traffic during training, so agents learn to race rather than only to lap
+
+## Architecture
+
+```mermaid
+flowchart LR
+    T[Track YAML /<br/>procedural] --> S[Simulator<br/>physics, collisions, laps]
+    S --> E[Gymnasium env<br/>rays, reward, endings]
+    E --> P[PPO trainer<br/>Stable-Baselines3]
+    E --> N[NEAT trainer<br/>neat-python, parallel]
+    P --> M[(Models +<br/>metadata)]
+    N --> M
+    M --> V[Evaluator<br/>fixed scenarios, CI]
+    M --> B[Benchmark<br/>seeds, equal budgets]
+    M --> R[Recorder / races]
+    R --> U[Replay viewer<br/>pygame-ce]
+    B --> Rep[Reports + charts]
+```
+
+The simulator is pure NumPy and never imports graphics; training runs headless. Every
+saved model carries a metadata file (algorithm, observation layout, environment config),
+and loading refuses a model into an environment it was not trained for.
+
+## Getting started
+
+Requires [uv](https://docs.astral.sh/uv/) and git. Python 3.12 or 3.13 (installed by uv
+if missing). No GPU needed.
 
 ```powershell
-# install uv once (see https://docs.astral.sh/uv/ for other ways)
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-
 git clone https://github.com/Mosab246/NeuroDrive-Lab.git
 cd NeuroDrive-Lab
 uv sync
-uv run python -m neurodrive play     # a window should open: drive with the arrow keys
+uv run python -m neurodrive play           # drive yourself: arrow keys / WASD
 ```
 
-On Linux or macOS the same `uv` commands work. Problems: see
-[docs/troubleshooting.md](docs/troubleshooting.md). To check the results yourself, start
-with the 1-minute experiment in [docs/reproducing.md](docs/reproducing.md).
+### Common commands
 
-## Quick start
+| Task | Command (`uv run python -m neurodrive ...`) |
+|---|---|
+| Watch a ghost race of the benchmark models | `demo` |
+| Watch a real race (cars collide) | `demo --real` |
+| Train PPO (~25 min on CPU) | `train ppo --config configs/ppo/default.yaml` |
+| Evolve NEAT (~18 min on CPU) | `train neat --config configs/neat/default.yaml` |
+| Watch a trained model | `play --model runs/ppo/<run>/best_model.zip` |
+| Evaluate on unseen tracks | `evaluate --model <model> --tracks "split:test,proc:20" --start random --split test` |
+| Run the full benchmark (~2 h, resumable) | `benchmark run --config configs/benchmark/default.yaml` |
+| Race any drivers | `race --real --driver <model or baseline> --driver ...` |
+| Championship (rotated grids, F1 points) | `grand-prix --benchmark runs/benchmark/ppo_vs_neat_1m` |
+| See a run improve over training | `timeline runs/ppo/<run>` |
+| Draw an evolved network | `show-network runs/neat/<run>/best_model.pkl` |
 
-```powershell
-# Watch the trained PPO and NEAT drivers race the scripted ones (ghost cars)
-uv run python -m neurodrive demo
+`demo` uses the benchmark models in `runs/benchmark/` (generated, not committed); without
+them it races the scripted drivers. To verify the results yourself, start with the
+[1-minute reproducible experiment](docs/reproducing.md).
 
-# Drive the car yourself (arrow keys / WASD)
-uv run python -m neurodrive play
+<details>
+<summary><b>Keyboard controls</b></summary>
 
-# Watch a baseline driver (press C in the window to cycle drivers, V for sensor rays)
-uv run python -m neurodrive play --driver heuristic
-
-# Evaluate a driver on 100 fixed validation scenarios (writes runs/eval/...)
-uv run python -m neurodrive evaluate --controller heuristic --episodes 100
-
-# Train PPO (about 25 minutes), then watch and evaluate it
-uv run python -m neurodrive train ppo --config configs/ppo/default.yaml
-uv run python -m neurodrive play --model runs/ppo/<run>/best_model.zip
-uv run python -m neurodrive evaluate --model runs/ppo/<run>/best_model.zip --episodes 100
-uv run tensorboard --logdir runs/ppo
-
-# Evolve NEAT drivers (about 18 minutes), watch the best, draw its network
-uv run python -m neurodrive train neat --config configs/neat/default.yaml
-uv run python -m neurodrive play --model runs/neat/<run>/best_model.pkl
-uv run python -m neurodrive show-network runs/neat/<run>/best_model.pkl
-
-# Train on several tracks, then test on tracks never seen in training
-uv run python -m neurodrive train ppo --config configs/ppo/multitrack.yaml
-uv run python -m neurodrive evaluate --model runs/ppo/<run>/best_model.zip --tracks "split:test,proc:20" --start random --split test
-uv run python -m neurodrive play --track unseen_a --model runs/ppo/<run>/best_model.zip
-
-# Fair benchmark: 3 seeds per algorithm, same budget (about 2 hours on CPU; resumable)
-uv run python -m neurodrive benchmark run --config configs/benchmark/default.yaml
-
-# Ghost race: any drivers, same track and start; --save-dir keeps the replays
-uv run python -m neurodrive race --benchmark runs/benchmark/ppo_vs_neat_1m --driver autopilot --track unseen_b
-uv run python -m neurodrive race --driver runs/ppo/<run>/best_model.zip --driver heuristic --save-dir replays/
-
-# Learning timeline: snapshots of one training run race each other
-uv run python -m neurodrive timeline runs/ppo/<run>
-
-# Play back saved replays (--verify re-simulates them and checks every step)
-uv run python -m neurodrive replay replays/*.npz --verify
-
-# Measure headless simulation speed
-uv run python -m neurodrive bench-sim --steps 100000
-
-# Check a track file
-uv run python -m neurodrive validate-track beginner_oval
-uv run python -m neurodrive list-tracks
-
-# Tests and lint
-uv run pytest
-uv run ruff check .
-```
-
-### Playground controls
+**Playground (`play`)**
 
 | Key | Action |
 |---|---|
 | Arrows / WASD | Steer, throttle, brake |
-| C | Cycle driver: keyboard → heuristic → smoothed random → autopilot → trained model (only with `--model`) |
-| V | Show/hide the distance-sensor rays |
-| P | Pause / resume |
-| R | Reset to the start line |
-| + / − | Simulation speed 0.25× … 8× |
-| Z | Camera: whole track ↔ follow the car |
-| T | Show/hide the driven path |
-| Esc | Quit |
+| C | Cycle driver: keyboard, heuristic, smoothed random, autopilot, trained model |
+| V | Sensor rays on/off |
+| P / R | Pause / reset |
+| + / - | Simulation speed 0.25x to 8x |
+| Z / T | Follow camera / driven path |
 
-A crash (any corner of the car leaving the track) ends the run; press R.
-
-### Replay viewer controls (`demo`, `race`, `timeline`, `replay`)
+**Replay viewer (`demo`, `race`, `timeline`, `replay`)**
 
 | Key | Action |
 |---|---|
 | Space | Play / pause |
-| ← / → | Seek 1 s (hold Shift for 5 s); or click the time bar |
-| + / − | Playback speed 0.25× … 8× |
-| R / Home | Back to the start |
+| Left / Right | Seek 1 s (Shift: 5 s), or click the time bar |
+| + / - | Playback speed |
 | Tab | Focus the next car |
-| V | Show/hide the focused car's sensor rays |
-| N | Show the focused car's network (NEAT: the evolved graph; PPO: its fixed layers) |
-| Z | Camera: whole track ↔ follow the focused car |
-| T | Show/hide trails |
-| Esc | Quit |
+| V / N | Focused car's sensor rays / neural network |
+| Z / T | Follow camera / trails |
 
-Every car is labeled, and the standings panel says whether each driver is learned (PPO,
-NEAT) or scripted. Cars are ghosts: they pass through each other.
+</details>
 
-![Ghost race between the benchmark models and the scripted drivers](docs/images/phase7-ghost-race.png)
-
-## Project layout
+## Project structure
 
 ```
 src/neurodrive/
-  sim/          physics, tracks, sensors, progress, simulation (pure NumPy, no graphics)
-  tracks/       track YAML files
-  env/          Gymnasium environment: config, observations, rewards
-  agents/       Controller interface, baselines, PPO and NEAT controllers, model loading
-  training/     PPO and NEAT training: configs, run folders
-  viz/          network drawings and NEAT plots
-  replay/       recording episodes, the replay file format, race/timeline line-ups
+  sim/          physics, tracks, sensors, progress, multi-car races (NumPy only)
+  env/          Gymnasium environment: config, observations, rewards, traffic
+  agents/       controller interface, baselines, PPO and NEAT controllers, model loading
+  training/     PPO and NEAT training pipelines
   evaluation/   scenarios, evaluator, metrics
-  experiments/  run metadata (versions, git commit)
-  ui/           pygame-ce playground and replay viewer
-  bench.py      headless throughput benchmark
-  cli.py        python -m neurodrive ...
-configs/        environment, PPO and NEAT experiment configs
-scripts/        generate_tracks.py (how the built-in tracks were made)
-tests/          unit, integration, smoke
-docs/           spec, architecture review, physics, measured results
+  benchmark/    multi-seed benchmark runner and report generator
+  replay/       replay format and recording, races, championships
+  ui/           playground and replay viewer (pygame-ce)
+configs/        environment, PPO, NEAT and benchmark configurations
+results/        committed benchmark reports (CSV, JSON, charts)
+tests/          unit, integration and smoke tests
+docs/           design, physics, ML guide, results, phase reports
 ```
 
 ## Documentation
 
-- [docs/SPEC.md](docs/SPEC.md): the original project specification
-- [docs/architecture-review.md](docs/architecture-review.md): Phase 0 design review and roadmap
-- [docs/physics.md](docs/physics.md): how the car, track, collisions and laps work
-- [docs/ml-guide.md](docs/ml-guide.md): the learning problem: observations, actions, reward, endings
-- [docs/training-guide.md](docs/training-guide.md): how to train, watch, resume and evaluate
-- [docs/results.md](docs/results.md): measured numbers only, with commands
-- [docs/reproducing.md](docs/reproducing.md): a 1-minute experiment, and how to rerun everything
-- [docs/troubleshooting.md](docs/troubleshooting.md): known problems and fixes
-- [results/benchmark/ppo_vs_neat_1m/report.md](results/benchmark/ppo_vs_neat_1m/report.md):
-  the generated PPO-vs-NEAT benchmark report
-- [docs/phases/phase-1.md](docs/phases/phase-1.md), [docs/phases/phase-2.md](docs/phases/phase-2.md),
-  [docs/phases/phase-3.md](docs/phases/phase-3.md),
-  [docs/phases/phase-4.md](docs/phases/phase-4.md),
-  [docs/phases/phase-5.md](docs/phases/phase-5.md),
-  [docs/phases/phase-6.md](docs/phases/phase-6.md),
-  [docs/phases/phase-7.md](docs/phases/phase-7.md): phase reports
+| Document | Contents |
+|---|---|
+| [ML guide](docs/ml-guide.md) | Observations, actions, reward design, PPO and NEAT explained, overfitting, fair comparison |
+| [Physics](docs/physics.md) | Vehicle models, tracks, collision, lap counting, races |
+| [Results](docs/results.md) | Every measured number, with commands, dates and hardware |
+| [Training guide](docs/training-guide.md) | Training, monitoring, resuming, evaluating |
+| [Reproducing](docs/reproducing.md) | A 1-minute experiment and how to rerun everything |
+| [Architecture review](docs/architecture-review.md) | Design decisions, risks and roadmap |
+| [Troubleshooting](docs/troubleshooting.md) | Known problems and fixes |
+| [Phase reports](docs/phases/) | What was built and measured at each stage |
+
+## Tech stack
+
+Python · NumPy · Gymnasium · Stable-Baselines3 · PyTorch · neat-python · pygame-ce ·
+pydantic · matplotlib · TensorBoard · pytest · ruff · mypy · uv · GitHub Actions
 
 ## License
 
-[MIT](LICENSE). Third-party packages keep their own licenses (installed by uv, not
-bundled here).
+[MIT](LICENSE)
