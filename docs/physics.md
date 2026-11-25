@@ -130,6 +130,69 @@ Checkpoints must be reached in order, and each counts once per lap. Together:
 
 Each row has a unit test in `tests/unit/test_progress.py` or `tests/unit/test_simulation.py`.
 
+## The hard physics: a dynamic bicycle with tyre slip (Phase 9)
+
+`physics: {model: dynamic}` in an environment config swaps the car model. The kinematic
+car above turns wherever its wheels point (only *less*, at the grip limit). A real car
+does not: its tyres have to *push it sideways*, and they can only push so hard.
+
+State added to the car: **sideways speed** `vy` (at the centre of mass) and **yaw rate**
+`r` (how fast it rotates). `speed` is now the forward speed in the car's own frame.
+
+Each axle's tyres make a sideways force from their **slip angle** α, the angle between
+where the wheel points and where it is actually travelling:
+
+```
+front: α_f = atan2(vy + l_f·r, vx) − δ        rear: α_r = atan2(vy − l_r·r, vx)
+F_y = −C·α, clipped to the friction left over:  sqrt((μ·load)² − F_x²)
+```
+
+* **Friction circle.** A tyre has one budget, `μ · load`. Force used to accelerate or
+  brake (`F_x`) is not available for cornering. Full throttle out of a corner takes grip
+  from the rear tyres, so the rear slides: **oversteer**. Hard braking into a corner
+  takes it from the fronts, so the car pushes wide: **understeer**.
+* **Rear-wheel drive**, braking split 60/40 front/rear.
+* **Traction control / ABS.** Driving and braking may use at most 85% of a tyre's grip
+  (`max_tire_usage`). Without this, full throttle from a standstill used *all* of the
+  rear grip, left none for steering, and the car spun at the slightest steering input,
+  even at walking pace. Real cars have the same electronics for the same reason.
+* **Low speed.** Below 2 m/s slip angles are undefined (dividing by ~0 speed) and the
+  equations become numerically stiff, so the car rolls kinematically there.
+* **Integration.** 4 internal steps per physics substep (240 Hz) keep the stiff tyre
+  forces stable.
+
+Default parameters (`VehicleParams`): 1200 kg, yaw inertia 1600 kg·m², centre of mass
+1.2 m behind the front axle, cornering stiffness 70 000 / 80 000 N/rad (front/rear),
+μ = 1.1.
+
+What it does to driving, measured (2026-11-25, 26 tracks, 5 random starts each):
+
+| Driver | Easy physics | Hard physics |
+|---|---|---|
+| Autopilot (privileged, plans corner speed from μ·g) | 100% laps | 100% laps, 38.0 s mean |
+| Heuristic (sensors only, hand-written) | 100% laps | **29%** laps |
+
+So every track is still drivable, but rules written for the easy car no longer work.
+
+Learning agents get two extra inputs with this physics, `observation.motion_features`:
+sideways speed and yaw rate (what a phone's motion sensor measures; no track knowledge),
+because a slide cannot be seen in the distance rays until it is too late.
+
+## Several cars at once (Phase 9)
+
+`RaceWorld` (`sim/race.py`) runs several ordinary simulations on one track:
+
+* **Starting grid**: two abreast, staggered, behind the start/finish line. Laps count from
+  the line for everyone, so cars further back just drive a few meters more.
+* **Seeing each other**: the distance sensors' rays stop at other cars' rectangles exactly
+  as at walls, so the observation format is unchanged.
+* **Contact**: an exact rectangle-overlap test (separating axes). Overlapping cars are
+  pushed apart and exchange momentum along the contact direction like two equal masses
+  (restitution 0.3, 5% scrub per hit). A car hit from behind is shoved forward. A first
+  version slowed *both* cars on every hit; a blind car behind then kept the car in front
+  pinned until both crawled to the time limit. A push into the wall is a normal crash.
+* **Out of the race**: a finished, crashed or stalled car leaves the track.
+
 ## Determinism and the fixed time step
 
 The simulation never reads the wall clock. Simulated time is computed as
