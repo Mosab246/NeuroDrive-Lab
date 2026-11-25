@@ -41,6 +41,8 @@ from neurodrive.sim.simulation import Simulation
 from neurodrive.sim.vehicle import body_center
 
 OBS_VERSION = "obs-v1"
+LATERAL_SPEED_SCALE = 10.0  # m/s mapped to 1.0 (motion features)
+YAW_RATE_SCALE = 3.0  # rad/s mapped to 1.0
 
 
 @dataclass(frozen=True)
@@ -80,8 +82,15 @@ class ObservationBuilder:
             privileged += extra
             low += [-1.0, -1.0, -1.0]
             high += [1.0, 1.0, 1.0]
+        if config.motion_features:
+            names += ["lateral_speed", "yaw_rate"]
+            low += [-1.0, -1.0]
+            high += [1.0, 1.0]
+        suffix = ("+route" if config.route_features else "") + (
+            "+motion" if config.motion_features else ""
+        )
         self.spec = ObservationSpec(
-            version=OBS_VERSION + ("+route" if config.route_features else ""),
+            version=OBS_VERSION + suffix,
             names=tuple(names),
             low=np.array(low, dtype=np.float32),
             high=np.array(high, dtype=np.float32),
@@ -104,6 +113,10 @@ class ObservationBuilder:
             err = state.heading - math.atan2(tangent[1], tangent[0])
             half_width = sim.track.half_width[sim.progress.segment]
             parts.append([math.sin(err), math.cos(err), sim.progress.lateral / half_width])
+        if self.config.motion_features:
+            parts.append(
+                [state.lateral_speed / LATERAL_SPEED_SCALE, state.yaw_rate / YAW_RATE_SCALE]
+            )
         obs = np.concatenate([np.asarray(p, dtype=np.float64) for p in parts])
         np.clip(obs, self.spec.low, self.spec.high, out=obs)
         out = obs.astype(np.float32)

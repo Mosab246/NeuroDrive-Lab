@@ -1,0 +1,27 @@
+# PPO on the three training tracks with the HARD physics: tyres can slip, so the car can
+# slide and spin. The observation adds sideways speed and rotation rate (13 numbers), so
+# the driver can feel a slide. Otherwise identical to multitrack.yaml.
+name: ppo_dynamic
+
+env:
+  tracks: [beginner_oval, curved_circuit, technical_circuit]   # split: train only
+  random_start: true
+  laps_to_finish: 1
+  max_episode_seconds: 90.0
+  perturb_start: true
+  physics:
+    model: dynamic
+  observation:
+    motion_features: true
+
+training:
+  total_timesteps: 2000000
+  n_envs: 8
+  vec_env: subproc
+  seed: 0
+  device: cpu
+  torch_threads: 4       # leaves CPU for NEAT if both run at once
+  eval_every_steps: 100000
+  eval_episodes: 10      # per validation track
+  checkpoint_every_steps: 100000
+  validation_tracks: [validation_circuit]

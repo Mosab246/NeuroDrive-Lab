@@ -1,0 +1,28 @@
+# NEAT on the three training tracks with the HARD physics (tyre slip) and the 13-number
+# observation (adds sideways speed and rotation rate). Otherwise as multitrack.yaml.
+name: neat_dynamic
+
+env:
+  tracks: [beginner_oval, curved_circuit, technical_circuit]   # split: train only
+  random_start: true
+  laps_to_finish: 1
+  max_episode_seconds: 90.0
+  perturb_start: true
+  physics:
+    model: dynamic
+  observation:
+    motion_features: true
+
+neat:
+  neat_config: configs/neat/dynamic.ini
+  pop_size: 150
+  generations: 60
+  max_env_steps: null
+  scenarios_per_genome: 1     # per track, so 3 episodes per genome per generation
+  speed_weight: 1.0
+  seed: 0
+  workers: 12
+  validate_every: 5
+  validation_episodes: 10
+  checkpoint_every: 10
+  validation_tracks: [validation_circuit]

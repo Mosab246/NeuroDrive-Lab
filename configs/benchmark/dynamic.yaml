@@ -1,0 +1,25 @@
+# PPO vs NEAT with the HARD physics (tyre slip). Same tracks, seeds and test scenarios as
+# the other benchmarks; 3M steps because sliding cars take longer to learn.
+name: ppo_vs_neat_dynamic_3m
+
+budget_env_steps: 3000000     # per training run, for both algorithms
+seeds: [0, 1, 2]
+algorithms: [ppo, neat]
+
+ppo_config: configs/ppo/dynamic.yaml
+neat_config: configs/neat/dynamic.yaml
+
+ppo_overrides:
+  eval_every_steps: 100000
+  checkpoint_every_steps: 250000
+neat_overrides:
+  validate_every: 1
+  checkpoint_every: 10
+
+baselines: [heuristic, autopilot, smoothed_random]
+
+eval:
+  tracks: "beginner_oval,curved_circuit,technical_circuit,validation_circuit,unseen_a,unseen_b,proc:20"
+  episodes_per_track: 20
+  split: test
+  random_start: true

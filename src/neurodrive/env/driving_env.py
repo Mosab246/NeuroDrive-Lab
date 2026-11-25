@@ -50,7 +50,7 @@ class DrivingEnv(gym.Env[np.ndarray, np.ndarray]):
         if render_mode is not None and render_mode not in self.metadata["render_modes"]:
             raise ValueError(f"render_mode must be one of {self.metadata['render_modes']}")
         self.render_mode = render_mode
-        self._vehicle = vehicle
+        self._vehicle = vehicle or self.config.physics.vehicle_params()
         # One simulation per track, built on first use and kept: switching tracks between
         # episodes is then just a pointer change.
         self._worlds: dict[str, tuple[Track, Simulation, ObservationBuilder]] = {}

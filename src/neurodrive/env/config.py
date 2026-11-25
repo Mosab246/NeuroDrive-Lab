@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from neurodrive.sim.sensors import DEFAULT_RAY_ANGLES_DEG
+from neurodrive.sim.vehicle import VehicleParams
 
 
 class _Strict(BaseModel):
@@ -27,6 +29,28 @@ class ObservationConfig(_Strict):
             "the local track direction, and the lateral offset from the centerline."
         ),
     )
+    motion_features: bool = Field(
+        default=False,
+        description=(
+            "Append the car's sideways speed and rotation rate (what a phone-style motion "
+            "sensor measures). Needed to notice a slide with the dynamic physics. Not "
+            "privileged: no track knowledge."
+        ),
+    )
+
+
+class PhysicsConfig(_Strict):
+    model: Literal["kinematic", "dynamic"] = Field(
+        default="kinematic",
+        description="'kinematic': the car turns where it points, slowed by a grip limit. "
+        "'dynamic': tyres slip; the car can understeer, oversteer, slide and spin.",
+    )
+    tire_friction: float = Field(
+        default=1.1, gt=0, description="Dynamic model only: tyre friction coefficient (mu)."
+    )
+
+    def vehicle_params(self) -> VehicleParams:
+        return VehicleParams(model=self.model, tire_friction=self.tire_friction)
 
 
 class RewardConfig(_Strict):
@@ -57,6 +81,7 @@ class EnvConfig(_Strict):
     perturb_start: bool = Field(
         default=True, description="Random small start offsets on reset (seeded)."
     )
+    physics: PhysicsConfig = PhysicsConfig()
     sensors: SensorConfig = SensorConfig()
     observation: ObservationConfig = ObservationConfig()
     reward: RewardConfig = RewardConfig()

@@ -17,6 +17,9 @@ import math
 import numpy as np
 
 from neurodrive.sim.simulation import Simulation
+from neurodrive.sim.vehicle import GRAVITY
+
+DYNAMIC_GRIP_SHARE = 0.5
 
 
 class PurePursuitDriver:
@@ -52,10 +55,12 @@ class PurePursuitDriver:
         # Speed target from the tightest curvature in the preview window.
         samples = np.arange(0.0, self.preview, 2.0)
         kmax = max(abs(track.curvature_at(s + d)) for d in samples)
-        if params.max_lateral_accel > 0 and kmax > 1e-6:
-            v_target = math.sqrt(self.speed_margin * params.max_lateral_accel / kmax)
+        if params.model == "dynamic":
+            # Tyres can slide: plan corners at half the friction limit (mu * g).
+            grip = DYNAMIC_GRIP_SHARE * params.tire_friction * GRAVITY
         else:
-            v_target = params.max_speed
+            grip = self.speed_margin * params.max_lateral_accel
+        v_target = math.sqrt(grip / kmax) if grip > 0 and kmax > 1e-06 else params.max_speed
         v_target = min(v_target, params.max_speed)
         longitudinal = self.speed_gain * (v_target - state.speed)
         return np.clip(np.array([steering, longitudinal]), -1.0, 1.0)

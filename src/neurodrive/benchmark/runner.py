@@ -131,7 +131,8 @@ class Benchmark:
         if (out / "summary.json").exists():
             return
         self.log(f"=== evaluating baseline {name}")
-        env = self._env(EnvConfig())
+        # Same physics, sensors and episode rules the trained models face.
+        env = self._env(load_ppo_config(self.config.ppo_config).env)
         self._evaluate(make_controller(name, env, 0), out, None, env)
 
     def _env(self, base: EnvConfig) -> DrivingEnv:
