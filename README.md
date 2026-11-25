@@ -1,5 +1,7 @@
 # NeuroDrive Lab
 
+[![tests](https://github.com/Mosab246/NeuroDrive-Lab/actions/workflows/ci.yml/badge.svg)](https://github.com/Mosab246/NeuroDrive-Lab/actions/workflows/ci.yml)
+
 A 2D top-down driving simulator built as a controlled experiment: can a car learn to drive
 by itself, and how do **reinforcement learning (PPO)** and **neuroevolution (NEAT)** compare
 when they get the same car, sensors, tracks and budget?
@@ -59,7 +61,7 @@ needed.
 # install uv once (see https://docs.astral.sh/uv/ for other ways)
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-git clone <this repo>
+git clone https://github.com/Mosab246/NeuroDrive-Lab.git
 cd NeuroDrive-Lab
 uv sync
 uv run python -m neurodrive play     # a window should open: drive with the arrow keys
