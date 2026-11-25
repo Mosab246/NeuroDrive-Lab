@@ -4,8 +4,9 @@ A 2D top-down driving simulator built as a controlled experiment: can a car lear
 by itself, and how do **reinforcement learning (PPO)** and **neuroevolution (NEAT)** compare
 when they get the same car, sensors, tracks and budget?
 
-> **Status: Phase 6 of 8: fair benchmark.** Trained on three tracks with the same budget
-> (1M environment steps, 3 seeds each) and tested on 26 tracks, **PPO drives faster
+> **Status: Phase 7 of 8: interactive lab** (`neurodrive demo` starts a ghost race).
+> Benchmark result: trained on three tracks with the same budget (1M environment
+> steps, 3 seeds each) and tested on 26 tracks, **PPO drives faster
 > (22.30 s vs 23.54 s) but NEAT is more reliable (98.5% vs 92.6% of laps completed)**;
 > NEAT also learns in a fraction of the wall-clock time. Both beat the scripted drivers.
 > See [results](docs/results.md) and the
@@ -37,9 +38,12 @@ when they get the same car, sensors, tracks and budget?
   tracks; random start points; multi-track training; split rules enforced in code
 - A resumable PPO-vs-NEAT benchmark: equal env-step budgets, several seeds, identical
   test scenarios, and a generated report with spread across seeds and charts
-- 179 automated tests
+- Replays (verified to re-simulate exactly), ghost races, a learning timeline, and network
+  views in a replay viewer that holds 60 FPS with 8 cars
+- 197 automated tests
 
-Not built yet: replays, side-by-side ghost cars, the polished UI. See
+Not built yet: a live view attached to a running training job (by design: see the
+architecture review). See
 [docs/architecture-review.md](docs/architecture-review.md).
 
 ## Install (Windows PowerShell)
@@ -55,6 +59,9 @@ uv sync
 ## Quick start
 
 ```powershell
+# Watch the trained PPO and NEAT drivers race the scripted ones (ghost cars)
+uv run python -m neurodrive demo
+
 # Drive the car yourself (arrow keys / WASD)
 uv run python -m neurodrive play
 
@@ -82,6 +89,16 @@ uv run python -m neurodrive play --track unseen_a --model runs/ppo/<run>/best_mo
 
 # Fair benchmark: 3 seeds per algorithm, same budget (about 2 hours on CPU; resumable)
 uv run python -m neurodrive benchmark run --config configs/benchmark/default.yaml
+
+# Ghost race: any drivers, same track and start; --save-dir keeps the replays
+uv run python -m neurodrive race --benchmark runs/benchmark/ppo_vs_neat_1m --driver autopilot --track unseen_b
+uv run python -m neurodrive race --driver runs/ppo/<run>/best_model.zip --driver heuristic --save-dir replays/
+
+# Learning timeline: snapshots of one training run race each other
+uv run python -m neurodrive timeline runs/ppo/<run>
+
+# Play back saved replays (--verify re-simulates them and checks every step)
+uv run python -m neurodrive replay replays/*.npz --verify
 
 # Measure headless simulation speed
 uv run python -m neurodrive bench-sim --steps 100000
@@ -111,6 +128,26 @@ uv run ruff check .
 
 A crash (any corner of the car leaving the track) ends the run; press R.
 
+### Replay viewer controls (`demo`, `race`, `timeline`, `replay`)
+
+| Key | Action |
+|---|---|
+| Space | Play / pause |
+| ← / → | Seek 1 s (hold Shift for 5 s); or click the time bar |
+| + / − | Playback speed 0.25× … 8× |
+| R / Home | Back to the start |
+| Tab | Focus the next car |
+| V | Show/hide the focused car's sensor rays |
+| N | Show the focused car's network (NEAT: the evolved graph; PPO: its fixed layers) |
+| Z | Camera: whole track ↔ follow the focused car |
+| T | Show/hide trails |
+| Esc | Quit |
+
+Every car is labeled, and the standings panel says whether each driver is learned (PPO,
+NEAT) or scripted. Cars are ghosts: they pass through each other.
+
+![Ghost race between the benchmark models and the scripted drivers](docs/images/phase7-ghost-race.png)
+
 ## Project layout
 
 ```
@@ -121,9 +158,10 @@ src/neurodrive/
   agents/       Controller interface, baselines, PPO and NEAT controllers, model loading
   training/     PPO and NEAT training: configs, run folders
   viz/          network drawings and NEAT plots
+  replay/       recording episodes, the replay file format, race/timeline line-ups
   evaluation/   scenarios, evaluator, metrics
   experiments/  run metadata (versions, git commit)
-  ui/           pygame-ce playground
+  ui/           pygame-ce playground and replay viewer
   bench.py      headless throughput benchmark
   cli.py        python -m neurodrive ...
 configs/        environment, PPO and NEAT experiment configs

@@ -3,6 +3,13 @@
 Only numbers that were actually measured go here, each with the exact command, the
 machine, and the date.
 
+## Replay viewer frame rate (Phase 7)
+
+**Setup:** 2026-11-25, i9-13900HX laptop, real window 1400x860.
+`uv run python -m neurodrive replay <8 replay files> --frames 900`, eight cars on
+`unseen_a`: **60.2 FPS** average (the 60 FPS cap), drawing 3.5 ms per frame on average and
+5.8 ms at the 95th percentile. Details in [phases/phase-7.md](phases/phase-7.md).
+
 ## Fair benchmark: PPO vs NEAT at 1M environment steps (Phase 6)
 
 **Setup:** 2026-11-25, i9-13900HX laptop, CPU only.

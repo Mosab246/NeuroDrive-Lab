@@ -271,6 +271,92 @@ def expand_tracks(spec: str) -> list[str]:
     return list(dict.fromkeys(out))
 
 
+def _show_replays(replays: list, title: str, args: argparse.Namespace) -> int:
+    if getattr(args, "save_dir", None):
+        out = Path(args.save_dir)
+        for i, rep in enumerate(replays):
+            safe = "".join(c if c.isalnum() or c in "-_." else "_" for c in rep.label)
+            print(f"wrote {rep.save(out / f'{i:02d}_{safe}.npz')}")
+    if getattr(args, "no_window", False):
+        return 0
+    from neurodrive.ui.replay_viewer import ReplayViewer
+
+    viewer = ReplayViewer(replays, title=title, size=(args.width, args.height))
+    frames = viewer.run(max_frames=args.frames)
+    s = viewer.frame_time_stats()
+    print(
+        f"viewer: {frames} frames at {s['average_fps']:.1f} FPS average; draw time mean "
+        f"{s['mean_ms']:.1f} ms, 95th percentile {s['p95_ms']:.1f} ms"
+    )
+    return 0
+
+
+def _record(entries: list, args: argparse.Namespace) -> list:
+    from neurodrive.replay.recorder import record_many
+
+    if len(entries) > 8:
+        raise ValueError(f"{len(entries)} drivers chosen; the viewer shows at most 8")
+    print(f"recording {len(entries)} driver(s) on {args.track}, scenario seed {args.seed}")
+    return record_many(
+        entries, args.track, args.seed, random_start=args.start == "random", laps=args.laps
+    )
+
+
+def _cmd_replay(args: argparse.Namespace) -> int:
+    from neurodrive.replay.format import load_replay
+    from neurodrive.replay.recorder import verify_replay
+
+    replays = [load_replay(f) for f in args.files]
+    if args.verify:
+        for f, rep in zip(args.files, replays, strict=True):
+            verify_replay(rep)
+            print(f"verified {f}: re-simulation matches all {rep.steps} steps")
+    return _show_replays(replays, "Replay", args)
+
+
+def _cmd_record(args: argparse.Namespace) -> int:
+    from neurodrive.replay.lab import driver_entry
+
+    rep = _record([driver_entry(args.driver)], args)[0]
+    print(f"wrote {rep.save(args.out)}")
+    return 0
+
+
+def _cmd_race(args: argparse.Namespace) -> int:
+    from neurodrive.replay.lab import benchmark_entries, driver_entry
+
+    entries = []
+    if args.benchmark:
+        seeds = [int(s) for s in args.seeds.split(",")] if args.seeds else None
+        entries += benchmark_entries(args.benchmark, seeds)
+    entries += [driver_entry(d) for d in args.driver or []]
+    if not entries:
+        raise ValueError("choose drivers with --driver and/or --benchmark")
+    return _show_replays(_record(entries, args), "Ghost race", args)
+
+
+def _cmd_timeline(args: argparse.Namespace) -> int:
+    from neurodrive.replay.lab import timeline_entries
+
+    entries = timeline_entries(args.run, args.count)
+    return _show_replays(_record(entries, args), "Learning timeline", args)
+
+
+def _cmd_demo(args: argparse.Namespace) -> int:
+    from neurodrive.replay.lab import DEFAULT_BENCHMARK, baseline_entry, benchmark_entries
+
+    entries = []
+    if (DEFAULT_BENCHMARK / "manifest.json").is_file():
+        entries = benchmark_entries(DEFAULT_BENCHMARK, [0, 1, 2])
+    else:
+        print(
+            "no trained benchmark models found; showing the scripted drivers only. "
+            "Train some with `neurodrive benchmark run --config configs/benchmark/default.yaml`."
+        )
+    entries += [baseline_entry("heuristic"), baseline_entry("autopilot")]
+    return _show_replays(_record(entries, args), "Ghost race", args)
+
+
 def _cmd_list_tracks(_: argparse.Namespace) -> int:
     for tid in builtin_track_ids():
         print(tid)
@@ -350,6 +436,49 @@ def build_parser() -> argparse.ArgumentParser:
     sn.add_argument("model", help="a NEAT model .pkl")
     sn.add_argument("--out", default=None, help="PNG path (default: next to the model)")
     sn.set_defaults(func=_cmd_show_network)
+
+    def viewer_args(a: argparse.ArgumentParser, record: bool = True) -> None:
+        if record:
+            a.add_argument("--track", default="unseen_a", help="track id (default unseen_a)")
+            a.add_argument("--seed", type=int, default=0, help="scenario seed (same for all)")
+            a.add_argument("--start", choices=["line", "random"], default="line")
+            a.add_argument("--laps", type=int, default=None, help="laps per car (default 1)")
+            a.add_argument("--save-dir", default=None, help="also save the replays here")
+            a.add_argument("--no-window", action="store_true", help="record only")
+        a.add_argument("--width", type=int, default=1400)
+        a.add_argument("--height", type=int, default=860)
+        a.add_argument("--frames", type=int, default=None, help=argparse.SUPPRESS)
+
+    rp = sub.add_parser("replay", help="play back saved replay files (several = ghost race)")
+    rp.add_argument("files", nargs="+", help="replay .npz files on the same track")
+    rp.add_argument("--verify", action="store_true", help="re-simulate and check each replay")
+    viewer_args(rp, record=False)
+    rp.set_defaults(func=_cmd_replay)
+
+    rec = sub.add_parser("record", help="record one driver's episode to a replay file")
+    rec.add_argument("--driver", required=True, help="model file, baseline name, or LABEL=either")
+    rec.add_argument("--out", required=True, help="replay .npz path")
+    viewer_args(rec)
+    rec.set_defaults(func=_cmd_record)
+
+    race = sub.add_parser("race", help="record several drivers on one scenario and watch them")
+    race.add_argument(
+        "--driver", action="append", help="model file, baseline name, or LABEL=either (repeat)"
+    )
+    race.add_argument("--benchmark", default=None, help="add every best model of a benchmark")
+    race.add_argument("--seeds", default=None, help="with --benchmark: only these seeds, e.g. 0,1")
+    viewer_args(race)
+    race.set_defaults(func=_cmd_race)
+
+    tl = sub.add_parser("timeline", help="race snapshots of one training run against each other")
+    tl.add_argument("run", help="a PPO or NEAT run folder")
+    tl.add_argument("--count", type=int, default=6, help="how many snapshots (default 6)")
+    viewer_args(tl)
+    tl.set_defaults(func=_cmd_timeline)
+
+    dm = sub.add_parser("demo", help="ghost race of the benchmark models and scripted drivers")
+    viewer_args(dm)
+    dm.set_defaults(func=_cmd_demo)
     return p
 
 

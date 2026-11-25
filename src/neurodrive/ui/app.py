@@ -31,6 +31,7 @@ from neurodrive.agents.baselines import HeuristicController, SmoothedRandomContr
 from neurodrive.agents.pure_pursuit import PurePursuitDriver
 from neurodrive.env.config import ObservationConfig, SensorConfig
 from neurodrive.env.observations import ObservationBuilder
+from neurodrive.replay.recorder import describe_kind
 from neurodrive.sim.simulation import SimConfig, Simulation
 from neurodrive.sim.track import Track
 from neurodrive.ui import renderer as R
@@ -235,7 +236,7 @@ class PlaygroundApp:
         rows: list[tuple[str, str] | None] = [
             ("track", sim.track.spec.name),
             ("driver", getattr(driver, "name", "?")),
-            ("type", getattr(driver, "kind", "?")),
+            ("type", describe_kind(getattr(driver, "kind", "?"))),
             None,
             ("speed", f"{sim.state.speed * 3.6:6.1f} km/h"),
             ("steering cmd", f"{steer:+.2f}"),
