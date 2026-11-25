@@ -24,6 +24,7 @@ class EpisodeRecord:
     sim_time: float
     mean_speed: float  # m/s over the episode
     episode_return: float
+    contacts: int = 0  # hits on other cars (only with traffic)
 
     def to_row(self) -> dict[str, object]:
         return asdict(self)
@@ -72,6 +73,7 @@ def summarize(records: list[EpisodeRecord]) -> dict[str, object]:
         "mean_episode_steps": float(np.mean([r.steps for r in records])),
         "mean_speed": float(np.mean([r.mean_speed for r in records])),
         "mean_return": float(np.mean([r.episode_return for r in records])),
+        "mean_contacts": float(np.mean([r.contacts for r in records])),
     }
 
 

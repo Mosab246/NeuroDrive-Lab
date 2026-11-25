@@ -77,6 +77,9 @@ class DrivingEnv(gym.Env[np.ndarray, np.ndarray]):
         self._opponents: dict[str, list[Simulation]] = {}
         self._opponent_drivers: list[PurePursuitDriver] = []
         self.race: RaceWorld | None = None
+        #: Other cars near the agent (corner arrays) as of the last observation; set in
+        #: traffic, or by a race that drives this environment's car.
+        self.obstacles: list[np.ndarray] | None = None
 
     def _add_world(self, track: Track) -> None:
         sim = Simulation(
@@ -153,7 +156,8 @@ class DrivingEnv(gym.Env[np.ndarray, np.ndarray]):
         return world
 
     def _obstacles(self) -> list[np.ndarray] | None:
-        return self.race.obstacles_for(0) if self.race is not None else None
+        self.obstacles = self.race.obstacles_for(0) if self.race is not None else None
+        return self.obstacles
 
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
         new_hits = 0
@@ -163,7 +167,10 @@ class DrivingEnv(gym.Env[np.ndarray, np.ndarray]):
             race = self.race
             actions: list[np.ndarray | None] = [np.asarray(action)]
             for k, driver in enumerate(self._opponent_drivers, start=1):
-                actions.append(driver.act(race.cars[k]) if race.status[k].racing else None)
+                if race.status[k].racing:
+                    actions.append(driver.act(race.cars[k], race.obstacles_for(k)))
+                else:
+                    actions.append(None)
             race.step(actions)
             last = race.last_results[0]
             assert last is not None

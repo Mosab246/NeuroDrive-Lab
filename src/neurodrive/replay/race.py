@@ -32,6 +32,7 @@ def record_race(
     laps: int = 2,
     max_seconds: float | None = None,
     log: Callable[[str], None] = print,
+    with_network: bool = True,
 ) -> list[Replay]:
     if not entries:
         raise ReplayError("nothing to race")
@@ -49,7 +50,12 @@ def record_race(
     rows: list[list[list[float]]] = [[] for _ in range(n)]
     rays: list[list[tuple[np.ndarray, np.ndarray, np.ndarray]]] = [[] for _ in range(n)]
     actions: list[list[np.ndarray]] = [[] for _ in range(n)]
-    obs = [env.obs_builder.build(world.obstacles_for(i)) for i, env in enumerate(envs)]
+
+    def observe(i: int) -> np.ndarray:
+        envs[i].obstacles = world.obstacles_for(i)  # the autopilot reads these
+        return envs[i].obs_builder.build(envs[i].obstacles)
+
+    obs = [observe(i) for i in range(len(envs))]
 
     def keep(i: int) -> None:
         sim = envs[i].sim
@@ -76,7 +82,7 @@ def record_race(
         world.step(step_actions)
         for i in range(n):
             if was_racing[i]:
-                obs[i] = envs[i].obs_builder.build(world.obstacles_for(i))
+                obs[i] = observe(i)
                 keep(i)
     standings = world.standings()
     position = {car: p for p, car in enumerate(standings, start=1)}
@@ -86,7 +92,7 @@ def record_race(
     ):
         st = world.status[i]
         table = np.asarray(rows[i], dtype=np.float64)
-        network, png = network_info(controller)
+        network, png = network_info(controller) if with_network else (None, None)
         meta: dict[str, Any] = {
             "format": FORMAT,
             "label": label,

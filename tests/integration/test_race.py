@@ -146,3 +146,34 @@ def test_hitting_a_car_costs_reward():
             break
     assert info["contacts"] >= 1
     assert total == pytest.approx(-env.config.reward.contact_penalty * info["contacts"])
+
+
+def test_rear_end_hit_pushes_the_front_car_forward(oval):
+    world = make_world(oval, 2)
+    world.reset()
+    front, back = world.cars
+    h = front.state.heading
+    back.state.x = front.state.x - 4.0 * np.cos(h)
+    back.state.y = front.state.y - 4.0 * np.sin(h)
+    back.state.heading = h
+    front.state.speed, back.state.speed = 5.0, 20.0
+    world.step([np.zeros(2), np.zeros(2)])
+    assert front.state.speed > 5.0  # shoved forward
+    assert back.state.speed < 20.0  # slowed by the hit
+
+
+def test_aware_autopilot_follows_a_slow_car_without_hitting_it(oval):
+    world = make_world(oval, 2)
+    world.reset()  # car 0 starts ahead of car 1
+    slow = PurePursuitDriver(speed_margin=0.2)
+    fast = PurePursuitDriver(speed_margin=0.8)
+    for _ in range(900):
+        if world.done:
+            break
+        world.step(
+            [
+                slow.act(world.cars[0]) if world.status[0].racing else None,
+                fast.act(world.cars[1], world.obstacles_for(1)) if world.status[1].racing else None,
+            ]
+        )
+    assert world.status[1].contacts == 0

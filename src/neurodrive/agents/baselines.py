@@ -126,4 +126,4 @@ class PrivilegedAutopilot:
         pass
 
     def act(self, obs: np.ndarray) -> np.ndarray:
-        return self.driver.act(self.env.sim)
+        return self.driver.act(self.env.sim, self.env.obstacles)

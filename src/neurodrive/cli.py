@@ -177,6 +177,9 @@ def _cmd_evaluate(args: argparse.Namespace) -> int:
         config = load_env_config(args.config) if args.config else EnvConfig()
     if args.track:
         config = config.model_copy(update={"track": args.track, "tracks": None})
+    if args.traffic is not None:
+        traffic = config.traffic.model_copy(update={"cars": args.traffic})
+        config = config.model_copy(update={"traffic": traffic})
     track_list = expand_tracks(args.tracks) if args.tracks else None
     random_start = {"random": True, "line": False}.get(args.start or "")
     env = DrivingEnv(
@@ -220,13 +223,13 @@ def _cmd_evaluate(args: argparse.Namespace) -> int:
     if track_list:
         from neurodrive.evaluation.metrics import summarize
 
-        print(f"{'track':<20} {'laps':>9}  {'lap time':>9}  {'progress':>8}")
+        print(f"{'track':<20} {'laps':>9}  {'lap time':>9}  {'progress':>8}  {'hits':>5}")
         for tid in track_list:
             t: dict[str, Any] = summarize([r for r in records if r.track == tid])
             lap_t = f"{t['lap_time_mean']:.2f} s" if t["lap_time_n"] else "-"
             print(
                 f"{tid:<20} {t['completed']:>4}/{t['episodes']:<4} {lap_t:>9}  "
-                f"{100 * t['mean_lap_fraction']:7.1f}%"
+                f"{100 * t['mean_lap_fraction']:7.1f}%  {t['mean_contacts']:5.2f}"
             )
         print("overall:")
     lo, hi = s["completion_rate_ci95"]
@@ -242,9 +245,11 @@ def _cmd_evaluate(args: argparse.Namespace) -> int:
         f"lap time: {lap}\n"
         f"mean lap progress: {100 * s['mean_lap_fraction']:.1f}%   "
         f"collision rate: {100 * s['collision_rate']:.1f}%   "
-        f"endings: {s['termination_reasons']}\n"
-        f"wrote {out / 'episodes.csv'} and {out / 'summary.json'}"
+        f"endings: {s['termination_reasons']}"
     )
+    if config.traffic.cars:
+        print(f"hits on other cars: {s['mean_contacts']:.2f} per episode")
+    print(f"wrote {out / 'episodes.csv'} and {out / 'summary.json'}")
     return 0
 
 
@@ -365,6 +370,20 @@ def _cmd_demo(args: argparse.Namespace) -> int:
     return _show_replays(_record(entries, args), title, args)
 
 
+def _cmd_grand_prix(args: argparse.Namespace) -> int:
+    from neurodrive.replay.grand_prix import run_grand_prix
+    from neurodrive.replay.lab import benchmark_entries, driver_entry
+
+    entries = []
+    if args.benchmark:
+        seeds = [int(s) for s in args.seeds.split(",")] if args.seeds else None
+        entries += benchmark_entries(args.benchmark, seeds)
+    entries += [driver_entry(d) for d in args.driver or []]
+    tracks = expand_tracks(args.tracks)
+    run_grand_prix(entries, tracks, args.laps, Path(args.out))
+    return 0
+
+
 def _cmd_list_tracks(_: argparse.Namespace) -> int:
     for tid in builtin_track_ids():
         print(tid)
@@ -413,6 +432,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ev.add_argument(
         "--start", choices=["line", "random"], default=None, help="start position (default: config)"
+    )
+    ev.add_argument(
+        "--traffic", type=int, default=None, help="opponent cars on track (default: config)"
     )
     ev.add_argument("--split", choices=["validation", "test"], default="validation")
     ev.add_argument("--episodes", type=int, default=50)
@@ -486,6 +508,15 @@ def build_parser() -> argparse.ArgumentParser:
     tl.add_argument("--count", type=int, default=6, help="how many snapshots (default 6)")
     viewer_args(tl)
     tl.set_defaults(func=_cmd_timeline)
+
+    gp = sub.add_parser("grand-prix", help="a championship of real races, grid rotated")
+    gp.add_argument("--driver", action="append", help="model file, baseline, or LABEL=either")
+    gp.add_argument("--benchmark", default=None, help="add every best model of a benchmark")
+    gp.add_argument("--seeds", default=None, help="with --benchmark: only these seeds")
+    gp.add_argument("--tracks", default="split:test,proc:10", help="one race per track")
+    gp.add_argument("--laps", type=int, default=2)
+    gp.add_argument("--out", default="results/grand_prix/latest", help="output folder")
+    gp.set_defaults(func=_cmd_grand_prix)
 
     dm = sub.add_parser("demo", help="ghost race of the benchmark models and scripted drivers")
     dm.add_argument(

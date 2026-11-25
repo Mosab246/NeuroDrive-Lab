@@ -48,6 +48,7 @@ def run_episode(
         sim_time=float(info["time"]),
         mean_speed=speed_sum / max(1, int(info["steps"])),
         episode_return=float(info["episode_return"]),
+        contacts=int(info.get("contacts", 0)),
     )
 
 

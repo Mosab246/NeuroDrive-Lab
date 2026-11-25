@@ -7,7 +7,8 @@ rough reference lap time. It is always labelled "scripted (privileged)".
 
 Pure pursuit: pick a point on the centerline a short distance ahead, and steer along
 the circular arc that would pass through it. Speed: look at the tightest curve ahead
-and stay below the speed at which the tyres would lose grip there.
+and stay below the speed at which the tyres would lose grip there. Given the other cars
+on track, it also keeps a time gap to any car directly ahead instead of driving into it.
 """
 
 from __future__ import annotations
@@ -42,7 +43,8 @@ class PurePursuitDriver:
         self.preview = preview
         self.dynamic_grip_share = dynamic_grip_share
 
-    def act(self, sim: Simulation) -> np.ndarray:
+    def act(self, sim: Simulation, others: list[np.ndarray] | None = None) -> np.ndarray:
+        """``others``: corners of other cars on track (races and traffic)."""
         state, params, track = sim.state, sim.params, sim.track
         s = sim.progress.s
         lookahead = self.lookahead_base + self.lookahead_per_speed * state.speed
@@ -63,5 +65,24 @@ class PurePursuitDriver:
             grip = self.speed_margin * params.max_lateral_accel
         v_target = math.sqrt(grip / kmax) if grip > 0 and kmax > 1e-06 else params.max_speed
         v_target = min(v_target, params.max_speed)
+        if others:
+            v_target = min(v_target, self._follow_speed(sim, others))
         longitudinal = self.speed_gain * (v_target - state.speed)
         return np.clip(np.array([steering, longitudinal]), -1.0, 1.0)
+
+    #: Car-following: slow down for a car in this lane ahead, keeping this time gap.
+    FOLLOW_GAP_S = 0.8
+    FOLLOW_STANDSTILL_M = 6.0  # center-to-center distance at which it stops
+    FOLLOW_LANE_M = 2.4  # how far sideways a car counts as "in my lane"
+    FOLLOW_RANGE_M = 40.0
+
+    def _follow_speed(self, sim: Simulation, others: list[np.ndarray]) -> float:
+        me = sim.corners().mean(axis=0)
+        c, s = math.cos(sim.state.heading), math.sin(sim.state.heading)
+        limit = float("inf")
+        for corners in others:
+            dx, dy = corners.mean(axis=0) - me
+            ahead, side = dx * c + dy * s, -dx * s + dy * c
+            if 0.0 < ahead < self.FOLLOW_RANGE_M and abs(side) < self.FOLLOW_LANE_M:
+                limit = min(limit, max(0.0, (ahead - self.FOLLOW_STANDSTILL_M) / self.FOLLOW_GAP_S))
+        return limit

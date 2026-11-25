@@ -7,8 +7,9 @@ adds what happens *between* cars:
   ``grid_spacing`` meters apart. Everyone's laps count from the same line, so the cars at
   the back simply have a few more meters to drive, as in real racing.
 * **Contact.** After every step, overlapping cars (checked exactly, rectangle against
-  rectangle) are pushed apart and both lose speed. Contact does not end a car's race by
-  itself, but a push can shove a car into the wall, which does.
+  rectangle) are pushed apart and exchange momentum like two equal masses: a car hit
+  from behind is shoved forward, the car that hit it slows down. Contact does not end a
+  car's race by itself, but a push can shove a car into the wall, which does.
 * **Stalling.** A car that gains less than ``stall_min_progress`` meters in
   ``stall_seconds`` is out (same rule as the training environment).
 
@@ -18,14 +19,17 @@ Cars that finish, crash or stall leave the track and stop being obstacles. What 
 
 from __future__ import annotations
 
+import math
 from collections import deque
 from dataclasses import dataclass, field
 
 import numpy as np
 
 from neurodrive.sim.simulation import Simulation, StepResult
+from neurodrive.sim.vehicle import VehicleState
 
-CONTACT_SPEED_FACTOR = 0.6  # both cars keep this share of their speed after contact
+CONTACT_RESTITUTION = 0.3  # 0 = cars stick together, 1 = perfectly bouncy
+CONTACT_SCRUB = 0.95  # both cars keep this share of their speed per hit (scraping, damage)
 
 
 @dataclass
@@ -174,13 +178,8 @@ class RaceWorld:
                 push = rectangle_overlap(corners[i], corners[j])
                 if push is None:
                     continue
-                for k, sign in ((i, 0.5), (j, -0.5)):
-                    state = self.cars[k].state
-                    state.x += sign * push[0]
-                    state.y += sign * push[1]
-                    state.speed *= CONTACT_SPEED_FACTOR
-                    state.lateral_speed *= CONTACT_SPEED_FACTOR
-                    state.yaw_rate *= CONTACT_SPEED_FACTOR
+                self._collide(i, j, push)
+                for k in (i, j):
                     corners[k] = self.cars[k].corners()
                 touched.update((i, j))
                 pairs.add((i, j))
@@ -191,6 +190,23 @@ class RaceWorld:
                 self.new_hits[k] += 1
         self._touching = pairs
         return sorted(touched)
+
+    def _collide(self, i: int, j: int, push: np.ndarray) -> None:
+        """Separate cars ``i`` and ``j`` (``push`` moves ``i`` out of ``j``) and exchange
+        momentum along the contact direction, as two equal masses would: a car hit from
+        behind is shoved forward and the car that hit it slows down; cars rubbing side by
+        side mostly keep their speed."""
+        a, b = self.cars[i].state, self.cars[j].state
+        a.x, a.y = a.x + 0.5 * push[0], a.y + 0.5 * push[1]
+        b.x, b.y = b.x - 0.5 * push[0], b.y - 0.5 * push[1]
+        normal = push / max(float(np.hypot(*push)), 1e-12)
+        va, vb = _world_velocity(a), _world_velocity(b)
+        closing = float((va - vb) @ normal)
+        if closing < 0.0:  # moving into each other
+            impulse = -(1.0 + CONTACT_RESTITUTION) * closing / 2.0
+            va, vb = va + impulse * normal, vb - impulse * normal
+        _set_world_velocity(a, va * CONTACT_SCRUB)
+        _set_world_velocity(b, vb * CONTACT_SCRUB)
 
     def standings(self) -> list[int]:
         """Car indices in finishing order: finishers by time, then everyone else by how
@@ -203,3 +219,19 @@ class RaceWorld:
             return (1, -self.cars[i].progress.distance)
 
         return sorted(range(len(self.cars)), key=key)
+
+
+def _world_velocity(state: VehicleState) -> np.ndarray:
+    c, s = math.cos(state.heading), math.sin(state.heading)
+    return np.array(
+        [state.speed * c - state.lateral_speed * s, state.speed * s + state.lateral_speed * c]
+    )
+
+
+def _set_world_velocity(state: VehicleState, v: np.ndarray) -> None:
+    """Back to the car's frame. No reverse gear: a car knocked backwards just stops. The
+    kinematic model cannot slide, so it keeps only the forward part."""
+    c, s = math.cos(state.heading), math.sin(state.heading)
+    state.speed = max(0.0, float(v[0] * c + v[1] * s))
+    if state.lateral_speed != 0.0 or state.yaw_rate != 0.0:  # dynamic model
+        state.lateral_speed = float(-v[0] * s + v[1] * c)
