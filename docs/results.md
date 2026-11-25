@@ -3,6 +3,39 @@
 Only numbers that were actually measured go here, each with the exact command, the
 machine, and the date.
 
+## Fair benchmark: PPO vs NEAT at 1M environment steps (Phase 6)
+
+**Setup:** 2026-11-25, i9-13900HX laptop, CPU only.
+`uv run python -m neurodrive benchmark run --config configs/benchmark/default.yaml`.
+Each algorithm trained with seeds 0, 1, 2 on the three training tracks for 1,000,000
+environment steps (PPO used 1,015,808; NEAT 1,003,470 to 1,071,614, stopping at a
+generation boundary). Every model and baseline was then tested on the same 26 tracks x 20
+test scenarios with random starts. Full report:
+[results/benchmark/ppo_vs_neat_1m/report.md](../results/benchmark/ppo_vs_neat_1m/report.md).
+
+| Run | Test laps | Lap time | Collisions |
+|---|---|---|---|
+| PPO seed 0 | 502/520 | 22.48 s | 3.5% |
+| PPO seed 1 | 520/520 | 22.45 s | 0.0% |
+| PPO seed 2 | 423/520 | 21.98 s | 18.7% |
+| NEAT seed 0 | 520/520 | 22.73 s | 0.0% |
+| NEAT seed 1 | 502/520 | 24.39 s | 3.5% |
+| NEAT seed 2 | 514/520 | 23.50 s | 1.2% |
+| heuristic | 520/520 | 29.56 s | 0.0% |
+| autopilot | 520/520 | 28.02 s | 0.0% |
+| smoothed random | 0/520 | n/a | 57.9% |
+
+Pooled test laps: PPO 1445/1560 (95% CI 91.2 to 93.8%), NEAT 1536/1560 (97.7 to 99.0%).
+Mean lap time across seeds: PPO 22.30 s +/- 0.28, NEAT 23.54 s +/- 0.83; PPO faster on all
+26 tracks and in all 9 seed pairings.
+
+**Reading:** at equal budget PPO is faster but less reliable; NEAT laps more often. This
+reverses the Phase 5 lap-time ranking, which came from NEAT using about 6x more steps.
+Failures cluster on specific procedural tracks (PPO seed 2 failed all scenarios on four of
+them). Lap times average completed laps only. Wall-clock times (PPO 9 to 25 min, NEAT 1.1
+to 2.9 min) rose across the run while other programs shared the CPU: rough only. Details
+in [phases/phase-6.md](phases/phase-6.md).
+
 ## Multi-track training fixes the overfitting (Phase 5)
 
 **Setup:** 2026-11-25. Both algorithms retrained on the three **training** tracks

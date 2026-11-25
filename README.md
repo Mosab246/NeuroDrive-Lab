@@ -4,12 +4,12 @@ A 2D top-down driving simulator built as a controlled experiment: can a car lear
 by itself, and how do **reinforcement learning (PPO)** and **neuroevolution (NEAT)** compare
 when they get the same car, sensors, tracks and budget?
 
-> **Status: Phase 5 of 8: generalization.** Trained only on the oval, both agents
-> overfit: they never learned right turns (PPO completed 4% of laps on clockwise tracks,
-> NEAT 0%). Trained on three varied tracks, **both complete 100% of laps on 26 tracks,
-> 22 of them never seen in training**: PPO in 22.50 s on average, NEAT in 21.63 s. One
-> seed each, unequal budgets: the fair comparison is Phase 6. See
-> [results](docs/results.md).
+> **Status: Phase 6 of 8: fair benchmark.** Trained on three tracks with the same budget
+> (1M environment steps, 3 seeds each) and tested on 26 tracks, **PPO drives faster
+> (22.30 s vs 23.54 s) but NEAT is more reliable (98.5% vs 92.6% of laps completed)**;
+> NEAT also learns in a fraction of the wall-clock time. Both beat the scripted drivers.
+> See [results](docs/results.md) and the
+> [benchmark report](results/benchmark/ppo_vs_neat_1m/report.md).
 
 ![PPO driving with its sensor rays shown](docs/images/phase3-ppo-driving.png)
 
@@ -35,9 +35,11 @@ when they get the same car, sensors, tracks and budget?
   statistics, validation-based selection, reproducible runs, evolved-network drawings
 - 6 tracks (train / validation / test, both directions) plus unlimited procedural test
   tracks; random start points; multi-track training; split rules enforced in code
-- 174 automated tests
+- A resumable PPO-vs-NEAT benchmark: equal env-step budgets, several seeds, identical
+  test scenarios, and a generated report with spread across seeds and charts
+- 179 automated tests
 
-Not built yet: the multi-seed PPO-vs-NEAT benchmark, replays, the polished UI. See
+Not built yet: replays, side-by-side ghost cars, the polished UI. See
 [docs/architecture-review.md](docs/architecture-review.md).
 
 ## Install (Windows PowerShell)
@@ -77,6 +79,9 @@ uv run python -m neurodrive show-network runs/neat/<run>/best_model.pkl
 uv run python -m neurodrive train ppo --config configs/ppo/multitrack.yaml
 uv run python -m neurodrive evaluate --model runs/ppo/<run>/best_model.zip --tracks "split:test,proc:20" --start random --split test
 uv run python -m neurodrive play --track unseen_a --model runs/ppo/<run>/best_model.zip
+
+# Fair benchmark: 3 seeds per algorithm, same budget (about 2 hours on CPU; resumable)
+uv run python -m neurodrive benchmark run --config configs/benchmark/default.yaml
 
 # Measure headless simulation speed
 uv run python -m neurodrive bench-sim --steps 100000
