@@ -3,6 +3,38 @@
 Only numbers that were actually measured go here, each with the exact command, the
 machine, and the date.
 
+## Longer training, hard physics and racing (Phase 9)
+
+**Setup:** 2026-11-25 to 2026-11-26, i9-13900HX laptop, CPU only. Up to four jobs shared
+the CPU and the runs were interrupted once (laptop shutdown) and paused twice, so
+wall-clock times are rough; step counts are exact. Full write-up:
+[phases/phase-9.md](phases/phase-9.md).
+
+**5M-step benchmark** (`benchmark run --config configs/benchmark/long.yaml`; 3 seeds; 26
+tracks x 20 test scenarios): PPO 1370/1560 laps (87.8% ± 12.4 across seeds; 95% CI
+86.1-89.4%), 22.36 s ± 0.17; NEAT **1560/1560** (100%; CI 99.8-100.0%), **21.59 s ± 0.13**.
+NEAT faster on 25 of 26 tracks and in 9 of 9 seed pairings. At 1M steps the lap-time
+ranking was the other way round (PPO 22.30 s, NEAT 23.54 s).
+[Report](../results/benchmark/ppo_vs_neat_5m/report.md).
+
+**Hard-physics benchmark** (`configs/benchmark/dynamic.yaml`; tyre slip; 3M steps; 3
+seeds): PPO 77.2% laps, 27.75 s, 22.8% crashes; NEAT 88.1% laps, 33.95 s, 1.9% crashes;
+autopilot 100%, 38.03 s; heuristic 30.0%, 32.04 s.
+[Report](../results/benchmark/ppo_vs_neat_dynamic_3m/report.md).
+
+**Traffic** (seed 0 each; 22 test tracks x 20 scenarios; `evaluate --traffic 0|3`):
+
+| Driver | Alone | With 3 opponents | Hits per episode in traffic |
+|---|---|---|---|
+| PPO trained alone | 100%, 22.59 s | 99.5%, 25.77 s | 2.59 |
+| PPO trained with traffic | 98.0%, 21.91 s | 93.6%, 23.21 s | 1.48 |
+| NEAT trained alone | 100%, 21.74 s | 42.5%, 33.15 s | 0.24 |
+| NEAT trained with traffic | 100%, 23.02 s | 52.7%, 24.10 s | 0.08 |
+
+**Grand Prix** (12 races, 2 laps, grid rotated, F1 points): NEAT trained with traffic
+198, PPO trained alone 196, PPO trained with traffic 174, heuristic 140, autopilot 132,
+NEAT trained alone 104. [Standings](../results/grand_prix/phase9/standings.md).
+
 ## Replay viewer frame rate (Phase 7)
 
 **Setup:** 2026-11-25, i9-13900HX laptop, real window 1400x860.

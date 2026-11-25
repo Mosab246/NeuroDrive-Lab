@@ -41,35 +41,35 @@ a replay viewer to see what the numbers mean.
 
 ## Key results
 
-### 1. Equal budget: PPO is faster, NEAT is more reliable
+### 1. The winner depends on the training budget
 
-Both algorithms trained on three tracks for **1,000,000 environment steps**, 3 seeds each,
-then tested on 26 tracks (22 never seen) with 20 scenarios per track.
+Both algorithms trained on three tracks with identical environment-step budgets, 3 seeds
+each, then tested on 26 tracks (22 never seen) with 20 scenarios per track.
 
-| | PPO | NEAT | Scripted autopilot* | Sensor heuristic |
-|---|---|---|---|---|
-| Laps completed | 92.6% ± 9.9 | **98.5% ± 1.8** | 100% | 100% |
-| Mean lap time | **22.30 s ± 0.28** | 23.54 s ± 0.83 | 28.02 s | 29.56 s |
-| Training time (CPU) | ~17 min | **~2 min** | n/a | n/a |
+| Budget | | PPO | NEAT |
+|---|---|---|---|
+| **1M steps** | Laps completed | 92.6% ± 9.9 | **98.5% ± 1.8** |
+| | Mean lap time | **22.30 s** | 23.54 s |
+| **5M steps** | Laps completed | 87.8% ± 12.4 | **100.0% ± 0.0** |
+| | Mean lap time | 22.36 s | **21.59 s** |
+| | Training time (CPU) | ~2 h | **~7 min** |
 
-<sub>Mean ± standard deviation across 3 seeds. Pooled 95% confidence intervals for laps
-completed do not overlap (PPO 91.2-93.8%, NEAT 97.7-99.0%). *The autopilot reads the
-track geometry directly, which the learning agents never get. Full report:
-[results/benchmark/ppo_vs_neat_1m](results/benchmark/ppo_vs_neat_1m/report.md).</sub>
+<sub>Mean ± standard deviation across seeds. Pooled 95% confidence intervals for laps
+completed do not overlap at either budget. Training times are rough (the 5M runs shared
+the CPU with other jobs); step counts are exact. Reference drivers on the same scenarios:
+scripted autopilot 28.02 s, sensor heuristic 29.56 s (both 100%). Reports:
+[1M](results/benchmark/ppo_vs_neat_1m/report.md),
+[5M](results/benchmark/ppo_vs_neat_5m/report.md).</sub>
 
-- PPO's mean lap time was faster on **all 26 tracks**, but one of its three seeds failed
-  every scenario on four procedural tracks. Failures are per corner shape, not random.
-- Every one of the six trained runs lapped faster than both hand-written drivers (by
-  3.6 s or more per lap).
+- At 1M steps PPO is faster on all 26 tracks; at 5M steps NEAT is faster on 25 of 26,
+  wins all 9 seed pairings and completes every one of its 1,560 test laps.
+- PPO plateaued: its best checkpoints came from 0.6M to 4.4M steps and its lap time did
+  not improve. NEAT kept improving.
+- An earlier comparison with unequal budgets (NEAT ~6x more steps) had suggested NEAT was
+  faster at 1M too. Equal budgets and several seeds are what make the comparison meaningful;
+  the benchmark runner enforces both.
 
-### 2. An earlier "win" for NEAT disappeared under a fair budget
-
-Before budgets were matched, NEAT looked faster (21.63 s vs 22.50 s). It had used about
-**6x more environment steps**. With equal steps the ranking reversed. Comparing learning
-methods without equal budgets and multiple seeds produces misleading conclusions; the
-benchmark runner enforces both.
-
-### 3. Training on one track overfits, in a very specific way
+### 2. Training on one track overfits, in a very specific way
 
 | Trained on | Laps completed, 26 tracks | Counter-clockwise tracks | Clockwise tracks |
 |---|---|---|---|
@@ -81,7 +81,36 @@ The oval only turns left, so the agents never learned to turn right. Training on
 tracks in both directions fixed it completely, including on 22 tracks never seen in
 training.
 
-### 4. Evolution finds tiny solutions
+### 3. Hard physics: fast and reckless vs. slow and careful
+
+With tyres that can slip (understeer, oversteer, spins), 3M steps, 3 seeds:
+
+| | PPO | NEAT | Scripted autopilot | Sensor heuristic |
+|---|---|---|---|---|
+| Laps completed | 77.2% | **88.1%** | 100% | 30.0% |
+| Mean lap time | **27.75 s** | 33.95 s | 38.03 s | 32.04 s |
+| Crashes | 22.8% | **1.9%** | 0% | 70.0% |
+
+Hand-written rules that work on the easy physics fail 70% of the time here; both learned
+agents adapt. [Report](results/benchmark/ppo_vs_neat_dynamic_3m/report.md).
+
+### 4. Racing: two very different driving styles
+
+In real races (cars see each other with their sensors and collide), the two algorithms
+behave differently. Tested on 22 tracks with 3 opponents:
+
+| Driver | Laps completed | Hits on other cars per race |
+|---|---|---|
+| PPO | 99.5% | 2.59 |
+| NEAT | 42.5% | 0.24 |
+| NEAT trained with traffic | 52.7% | 0.08 |
+
+PPO bumps its way through traffic; NEAT avoids other cars almost perfectly but swerves into
+the wall to do so. Training with opponents on track helps NEAT most: in a 12-race
+championship (rotated grids, F1 scoring) it went from last place to first, 2 points ahead
+of PPO. [Standings](results/grand_prix/phase9/standings.md).
+
+### 5. Evolution finds tiny solutions
 
 The best NEAT driver of one benchmark seed has **no hidden neurons**: 16 direct
 connections from the sensors to the controls, and it laps every test track. The PPO
