@@ -89,7 +89,9 @@ class NEATSettings(_Strict):
     pop_size: int = Field(default=150, ge=2)
     generations: int = Field(default=100, ge=1)
     max_env_steps: int | None = Field(
-        default=None, ge=1, description="Stop once this many environment steps were used."
+        default=None,
+        ge=1,
+        description="Step budget: stop at the generation boundary closest to it.",
     )
     scenarios_per_genome: int = Field(
         default=2, ge=1, description="Starts each genome is scored on (shared per generation)."

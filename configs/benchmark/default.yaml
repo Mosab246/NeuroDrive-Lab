@@ -1,0 +1,26 @@
+# The Phase 6 benchmark: PPO vs NEAT under the same environment-step budget, several seeds,
+# both trained on the three training tracks and tested on the same 26 tracks x 20 scenarios.
+name: ppo_vs_neat_1m
+
+budget_env_steps: 1000000     # per training run, for both algorithms
+seeds: [0, 1, 2]
+algorithms: [ppo, neat]
+
+ppo_config: configs/ppo/multitrack.yaml
+neat_config: configs/neat/multitrack.yaml
+
+# Evaluate/select often enough that a 1M-step run has a fair number of validation checks
+ppo_overrides:
+  eval_every_steps: 50000
+  checkpoint_every_steps: 100000
+neat_overrides:
+  validate_every: 1
+  checkpoint_every: 5
+
+baselines: [heuristic, autopilot, smoothed_random]
+
+eval:
+  tracks: "beginner_oval,curved_circuit,technical_circuit,validation_circuit,unseen_a,unseen_b,proc:20"
+  episodes_per_track: 20
+  split: test
+  random_start: true

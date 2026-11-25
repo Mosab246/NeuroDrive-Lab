@@ -69,6 +69,29 @@ def _cmd_train(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_benchmark(args: argparse.Namespace) -> int:
+    from neurodrive.benchmark.report import build_report
+
+    if args.action == "run":
+        from neurodrive.benchmark.config import load_benchmark_config
+        from neurodrive.benchmark.runner import Benchmark
+
+        if not args.config:
+            raise ValueError("benchmark run needs --config")
+        cfg = load_benchmark_config(args.config)
+        bench_dir = Benchmark(cfg, root=Path(args.root)).run()
+    else:
+        if not args.dir:
+            raise ValueError("benchmark report needs --dir runs/benchmark/<name>")
+        bench_dir = Path(args.dir)
+        if not (bench_dir / "manifest.json").is_file():
+            raise FileNotFoundError(f"no manifest.json in {bench_dir}")
+    out = Path(args.out or f"results/benchmark/{bench_dir.name}")
+    build_report(bench_dir, out)
+    print(f"report written to {out / 'report.md'}")
+    return 0
+
+
 def _cmd_show_network(args: argparse.Namespace) -> int:
     from neurodrive.agents.model_io import ModelError, load_controller
     from neurodrive.agents.neat_agent import NEATController
@@ -314,6 +337,14 @@ def build_parser() -> argparse.ArgumentParser:
     tr.add_argument("--runs-dir", default=None, help="parent folder (default runs/<algo>)")
     tr.add_argument("--resume", default=None, help="continue from a checkpoint file")
     tr.set_defaults(func=_cmd_train)
+
+    bm = sub.add_parser("benchmark", help="run the PPO-vs-NEAT benchmark, or rebuild its report")
+    bm.add_argument("action", choices=["run", "report"])
+    bm.add_argument("--config", default=None, help="benchmark YAML (for run)")
+    bm.add_argument("--dir", default=None, help="benchmark folder (for report)")
+    bm.add_argument("--root", default="runs/benchmark", help="parent folder for benchmarks")
+    bm.add_argument("--out", default=None, help="report folder (default results/benchmark/<name>)")
+    bm.set_defaults(func=_cmd_benchmark)
 
     sn = sub.add_parser("show-network", help="draw a NEAT model's network to a PNG")
     sn.add_argument("model", help="a NEAT model .pkl")

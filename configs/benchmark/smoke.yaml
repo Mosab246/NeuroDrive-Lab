@@ -1,0 +1,24 @@
+# Tiny benchmark to check the pipeline end to end (learns nothing).
+name: smoke
+
+budget_env_steps: 4096
+seeds: [0, 1]
+algorithms: [ppo, neat]
+
+ppo_config: configs/ppo/smoke.yaml
+neat_config: configs/neat/smoke.yaml
+ppo_overrides:
+  eval_every_steps: 2048
+  checkpoint_every_steps: 2048
+neat_overrides:
+  validate_every: 1
+  checkpoint_every: 1
+  pop_size: 8
+
+baselines: [heuristic]
+
+eval:
+  tracks: "unseen_a,proc:1"
+  episodes_per_track: 2
+  split: test
+  random_start: true

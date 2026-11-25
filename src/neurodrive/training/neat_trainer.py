@@ -137,6 +137,7 @@ class GenerationEvaluator:
         self.population: neat.Population | None = None
         self.t0 = time.perf_counter()
         self.steps_total = 0
+        self.last_gen_steps = 0
         self.episodes_total = 0
         self.wall_offset = 0.0
         self.best_key: tuple[float, float, float] | None = None
@@ -223,6 +224,7 @@ class GenerationEvaluator:
             best_lap = min(best_lap, lap)
         n_eps = len(results) * len(scenarios)
         self.steps_total += gen_steps
+        self.last_gen_steps = gen_steps
         self.episodes_total += n_eps
 
         best_key = max(by_key, key=lambda k: by_key[k].fitness)
@@ -378,7 +380,14 @@ def train_neat(
     stop_reason = "generations"
     try:
         while population.generation < s.generations:
-            if s.max_env_steps is not None and evaluator.steps_total >= s.max_env_steps:
+            # Stop at the generation boundary closest to the budget, assuming the next
+            # generation costs about as many steps as the last one. A strict ceiling would
+            # shortchange NEAT by up to a whole generation. (PPO stops at the end of a
+            # rollout; both report the steps actually used.)
+            if (
+                s.max_env_steps is not None
+                and evaluator.steps_total + evaluator.last_gen_steps / 2 > s.max_env_steps
+            ):
                 stop_reason = "max_env_steps"
                 break
             fittest = population.run(evaluator, 1)

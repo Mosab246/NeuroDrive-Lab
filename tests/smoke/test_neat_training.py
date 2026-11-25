@@ -128,3 +128,18 @@ def test_show_network_cli(run_dir, tmp_path, capsys):
     out = tmp_path / "net.png"
     assert main(["show-network", str(run_dir / "best_model.pkl"), "--out", str(out)]) == 0
     assert out.stat().st_size > 1000
+
+
+def test_step_budget_stops_near_the_budget(tmp_path):
+    import json
+
+    exp = TINY.model_copy(
+        update={"neat": TINY.neat.model_copy(update={"generations": 50, "max_env_steps": 3000})}
+    )
+    run = train_neat(exp, runs_root=tmp_path, log=lambda _: None)
+    s = json.loads((run / "train_summary.json").read_text(encoding="utf-8"))
+    assert s["stopped_because"] == "max_env_steps"
+    assert s["generations_completed"] < 50
+    rows = history(run)
+    last_gen = int(rows[-1][1])
+    assert abs(s["env_steps_total"] - 3000) <= last_gen  # within about one generation
