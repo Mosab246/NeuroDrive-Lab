@@ -1,0 +1,5 @@
+driver,alone_laps,alone_rate,alone_lap_time,alone_collision_rate,alone_hits,traffic3_laps,traffic3_rate,traffic3_lap_time,traffic3_collision_rate,traffic3_hits
+PPO trained alone,440/440,100.0,22.59,0.0,0.0,438/440,99.5,25.77,0.5,2.59
+PPO trained with traffic,431/440,98.0,21.91,2.0,0.0,412/440,93.6,23.21,6.4,1.48
+NEAT trained alone,440/440,100.0,21.74,0.0,0.0,187/440,42.5,33.15,56.6,0.24
+NEAT trained with traffic,440/440,100.0,23.02,0.0,0.0,232/440,52.7,24.1,47.3,0.08

@@ -1,0 +1,134 @@
+{
+  "tracks": [
+    "unseen_a",
+    "unseen_b",
+    "proc_0",
+    "proc_1",
+    "proc_2",
+    "proc_3",
+    "proc_4",
+    "proc_5",
+    "proc_6",
+    "proc_7",
+    "proc_8",
+    "proc_9"
+  ],
+  "laps": 2,
+  "drivers": [
+    "PPO solo",
+    "PPO traffic",
+    "NEAT solo",
+    "NEAT traffic",
+    "autopilot",
+    "heuristic"
+  ],
+  "models": {
+    "PPO solo": "runs\\ppo\\ppo_multitrack_seed0_20261125-020842\\best_model.zip",
+    "PPO traffic": "runs\\traffic\\ppo_traffic_seed0_20261125-130405\\best_model.zip",
+    "NEAT solo": "runs\\neat\\neat_multitrack_seed0_20261125-020836\\best_model.pkl",
+    "NEAT traffic": "runs\\traffic\\neat_traffic_seed0_20261125-140048\\best_model.pkl",
+    "autopilot": null,
+    "heuristic": null
+  },
+  "standings": [
+    {
+      "driver": "NEAT traffic",
+      "kind": "learned (NEAT)",
+      "points": 198,
+      "wins": 3,
+      "finished": 10,
+      "races": 12,
+      "mean_position": 2.3333333333333335,
+      "contacts": 1,
+      "outcomes": {
+        "finished": 10,
+        "collision": 2
+      }
+    },
+    {
+      "driver": "PPO solo",
+      "kind": "learned (PPO)",
+      "points": 196,
+      "wins": 4,
+      "finished": 10,
+      "races": 12,
+      "mean_position": 2.6666666666666665,
+      "contacts": 35,
+      "outcomes": {
+        "finished": 10,
+        "collision": 2
+      }
+    },
+    {
+      "driver": "PPO traffic",
+      "kind": "learned (PPO)",
+      "points": 174,
+      "wins": 3,
+      "finished": 9,
+      "races": 12,
+      "mean_position": 2.8333333333333335,
+      "contacts": 30,
+      "outcomes": {
+        "collision": 3,
+        "finished": 9
+      }
+    },
+    {
+      "driver": "heuristic",
+      "kind": "scripted (sensors only)",
+      "points": 140,
+      "wins": 0,
+      "finished": 12,
+      "races": 12,
+      "mean_position": 4.25,
+      "contacts": 13,
+      "outcomes": {
+        "finished": 12
+      }
+    },
+    {
+      "driver": "autopilot",
+      "kind": "scripted (privileged)",
+      "points": 132,
+      "wins": 0,
+      "finished": 12,
+      "races": 12,
+      "mean_position": 4.583333333333333,
+      "contacts": 28,
+      "outcomes": {
+        "finished": 12
+      }
+    },
+    {
+      "driver": "NEAT solo",
+      "kind": "learned (NEAT)",
+      "points": 104,
+      "wins": 2,
+      "finished": 6,
+      "races": 12,
+      "mean_position": 4.333333333333333,
+      "contacts": 3,
+      "outcomes": {
+        "stalled": 4,
+        "finished": 6,
+        "collision": 2
+      }
+    }
+  ],
+  "metadata": {
+    "created_utc": "2026-11-25T17:25:28+00:00",
+    "command": "D:\\Projects\\NeuroDrive-Lab\\src\\neurodrive\\__main__.py grand-prix --driver PPO solo=runs/ppo/ppo_multitrack_seed0_20261125-020842/best_model.zip --driver PPO traffic=runs/traffic/ppo_traffic_seed0_20261125-130405/best_model.zip --driver NEAT solo=runs/neat/neat_multitrack_seed0_20261125-020836/best_model.pkl --driver NEAT traffic=runs/traffic/neat_traffic_seed0_20261125-140048/best_model.pkl --driver autopilot --driver heuristic --tracks split:test,proc:10 --laps 2 --out results/grand_prix/phase9",
+    "git_commit": "fee26e6e3a96f90199cd7adc4d7c4b39c05c0c18-dirty",
+    "python": "3.12.13",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "packages": {
+      "neurodrive-lab": "0.1.0",
+      "numpy": "2.5.5",
+      "gymnasium": "1.4.0",
+      "stable-baselines3": "2.9.2",
+      "torch": "2.15.0+cpu",
+      "pygame-ce": "2.5.8"
+    }
+  }
+}
