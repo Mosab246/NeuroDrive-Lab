@@ -263,3 +263,38 @@ Every step every network drives counts as an environment step. 150 networks × 2
 uses far more environment steps than PPO, but each step is cheap (no gradient
 calculations) and networks are scored in parallel on 12 processes. That's why the
 comparison (Phase 6) reports both environment steps and wall-clock time.
+
+## Generalization and overfitting (Phase 5)
+
+An agent can score perfectly on the track it trained on and still not know how to drive.
+Our oval-only agents did exactly that: the oval only ever turns left, so they never
+learned right turns, and on clockwise tracks they completed 0-4% of laps. That's
+**overfitting**: learning the quirks of the training data instead of the general skill.
+
+The defenses, all used here:
+
+- **Varied training data.** Three training tracks in both directions, random start
+  points. With that, both agents lapped all 22 tracks they had never seen.
+- **A separate validation set** to choose which checkpoint to keep. If you pick the
+  checkpoint that does best on the *test* tracks, the test score stops being honest.
+- **A test set that is never touched** until the end, enforced in code: training on a
+  test track raises an error.
+
+## Comparing two learning methods fairly (Phase 6)
+
+"Which algorithm is better?" is easy to answer wrongly. The traps, and what this project
+does about each:
+
+| Trap | Why it misleads | What we do |
+|---|---|---|
+| Comparing iterations ("100 generations vs 1M steps") | A generation and a gradient update aren't comparable units | Give both the same budget of **environment steps** (car-driving steps) |
+| One run each | Random seeds change results a lot; one lucky run proves little | **Several seeds per algorithm**, every seed reported |
+| Picking the best model on the test set | The test score then measures your selection, not generalization | Selection on the validation track only |
+| Only reporting lap time | A driver that finishes 10% of laps can still have a fast average | Laps completed **and** lap time **and** crashes, with episode counts |
+| Only reporting steps | NEAT uses steps cheaply and in parallel; PPO spends time on gradient math | Report **wall-clock time** too, measured with nothing else running |
+| Claiming a winner from a small difference | With 3 seeds, randomness can easily explain it | Show the spread across seeds; call differences smaller than that "unresolved" |
+
+What "fair" can't fix: the two methods were set up with standard default settings, not
+tuned against each other. A different PPO batch size or a different NEAT population size
+could change the result. The benchmark compares *these configurations*, not the
+algorithms in the abstract.
