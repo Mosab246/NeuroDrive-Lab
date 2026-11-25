@@ -204,4 +204,5 @@ docs/           spec, architecture review, physics, measured results
 
 ## License
 
-Not chosen yet.
+[MIT](LICENSE). Third-party packages keep their own licenses (installed by uv, not
+bundled here).

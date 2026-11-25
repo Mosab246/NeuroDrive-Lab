@@ -3,6 +3,8 @@ name = "neurodrive-lab"
 version = "0.1.0"
 description = "A 2D driving simulator where PPO and NEAT agents learn to drive, compared fairly."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "numpy>=2.0",
