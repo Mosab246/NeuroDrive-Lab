@@ -60,7 +60,9 @@ class _Car:
         self.params = params
         self.learned = bool(replay.meta.get("learned"))
         self.end = replay.meta["termination_reason"]
-        self.lap_time = replay.meta["lap_times"][0] if replay.meta["lap_times"] else None
+        times = replay.meta["lap_times"]
+        # A race's result is its total time (several laps, from the grid).
+        self.lap_time = replay.meta.get("finish_time") or (times[0] if times else None)
         self.network_surface: pygame.Surface | None = None
 
     def corners(self, i: int) -> np.ndarray:

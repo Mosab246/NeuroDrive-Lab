@@ -33,12 +33,14 @@ class PurePursuitDriver:
         speed_margin: float = 0.8,
         speed_gain: float = 0.5,
         preview: float = 40.0,
+        dynamic_grip_share: float = DYNAMIC_GRIP_SHARE,
     ) -> None:
         self.lookahead_base = lookahead_base
         self.lookahead_per_speed = lookahead_per_speed
         self.speed_margin = speed_margin
         self.speed_gain = speed_gain
         self.preview = preview
+        self.dynamic_grip_share = dynamic_grip_share
 
     def act(self, sim: Simulation) -> np.ndarray:
         state, params, track = sim.state, sim.params, sim.track
@@ -53,11 +55,10 @@ class PurePursuitDriver:
         steering = -wheel / params.max_steer  # action convention: + = right
 
         # Speed target from the tightest curvature in the preview window.
-        samples = np.arange(0.0, self.preview, 2.0)
-        kmax = max(abs(track.curvature_at(s + d)) for d in samples)
+        kmax = track.max_abs_curvature(s + np.arange(0.0, self.preview, 2.0))
         if params.model == "dynamic":
             # Tyres can slide: plan corners at half the friction limit (mu * g).
-            grip = DYNAMIC_GRIP_SHARE * params.tire_friction * GRAVITY
+            grip = self.dynamic_grip_share * params.tire_friction * GRAVITY
         else:
             grip = self.speed_margin * params.max_lateral_accel
         v_target = math.sqrt(grip / kmax) if grip > 0 and kmax > 1e-06 else params.max_speed

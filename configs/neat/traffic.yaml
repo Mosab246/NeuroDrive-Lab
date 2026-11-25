@@ -1,0 +1,27 @@
+# NEAT trained WITH TRAFFIC: every episode has 3 opponent cars (scripted, random paces,
+# starting ahead) that the agent sees with its sensors and can bump into. Otherwise identical
+# to multitrack.yaml, so the two runs differ only in the traffic.
+name: neat_traffic
+
+env:
+  tracks: [beginner_oval, curved_circuit, technical_circuit]   # split: train only
+  random_start: true
+  laps_to_finish: 1
+  max_episode_seconds: 90.0
+  perturb_start: true
+  traffic:
+    cars: 3
+
+neat:
+  neat_config: configs/neat/multitrack.ini
+  pop_size: 150
+  generations: 60
+  max_env_steps: null
+  scenarios_per_genome: 1     # per track, so 3 episodes per genome per generation
+  speed_weight: 1.0
+  seed: 0
+  workers: 12
+  validate_every: 5
+  validation_episodes: 10
+  checkpoint_every: 10
+  validation_tracks: [validation_circuit]

@@ -67,9 +67,16 @@ class RaySensor:
     def num_rays(self) -> int:
         return len(self.offsets)
 
-    def cast(self, origin: FloatArray, heading: float, segment: int) -> RayHits:
+    def cast(
+        self,
+        origin: FloatArray,
+        heading: float,
+        segment: int,
+        obstacles: list[FloatArray] | None = None,
+    ) -> RayHits:
         """Cast all rays from ``origin``. ``segment`` is the car's current centerline segment
-        (from the progress tracker), used to pick nearby edge segments."""
+        (from the progress tracker), used to pick nearby edge segments. ``obstacles`` are
+        other cars, each a ``(4, 2)`` array of corners: rays stop at them like at walls."""
         n, w = self.track.num_points, self.window
         if self._full:
             sl = slice(w, w + n)
@@ -78,18 +85,29 @@ class RaySensor:
             sl = slice(start, start + 2 * w + 1)
         a = self._a[:, sl].reshape(-1, 2)  # (S, 2)
         e = self._e[:, sl].reshape(-1, 2)
+        if obstacles:
+            corners = np.concatenate(obstacles)  # (4K, 2)
+            edges = np.concatenate([np.roll(c, -1, axis=0) - c for c in obstacles])
+            a = np.concatenate([a, corners])
+            e = np.concatenate([e, edges])
         ang = heading + self.offsets
         d = np.column_stack([np.cos(ang), np.sin(ang)])  # (R, 2)
-
-        ao = a - origin  # (S, 2)
-        # Solve origin + t*d = a + u*e  for t (along ray) and u (along segment).
-        denom = d[:, 0:1] * e[None, :, 1] - d[:, 1:2] * e[None, :, 0]  # (R, S)
-        t_num = ao[None, :, 0] * e[None, :, 1] - ao[None, :, 1] * e[None, :, 0]
-        u_num = ao[None, :, 0] * d[:, 1:2] - ao[None, :, 1] * d[:, 0:1]
-        with np.errstate(divide="ignore", invalid="ignore"):
-            t = t_num / denom
-            u = u_num / denom
-        valid = (np.abs(denom) > 1e-12) & (t >= 0.0) & (u >= 0.0) & (u <= 1.0)
-        t = np.where(valid, t, np.inf)
-        dist = np.minimum(t.min(axis=1), self.max_range)
+        dist = np.minimum(_ray_segment_distances(origin, d, a, e), self.max_range)
         return RayHits(distances=dist, directions=d, origin=np.asarray(origin, dtype=float))
+
+
+def _ray_segment_distances(
+    origin: FloatArray, d: FloatArray, a: FloatArray, e: FloatArray
+) -> FloatArray:
+    """Distance along each ray ``origin + t * d[r]`` to the nearest segment ``a + u * e``
+    (``inf`` where a ray hits nothing)."""
+    ao = a - origin  # (S, 2)
+    # Solve origin + t*d = a + u*e  for t (along ray) and u (along segment).
+    denom = d[:, 0:1] * e[None, :, 1] - d[:, 1:2] * e[None, :, 0]  # (R, S)
+    t_num = ao[None, :, 0] * e[None, :, 1] - ao[None, :, 1] * e[None, :, 0]
+    u_num = ao[None, :, 0] * d[:, 1:2] - ao[None, :, 1] * d[:, 0:1]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        t = t_num / denom
+        u = u_num / denom
+    valid = (np.abs(denom) > 1e-12) & (t >= 0.0) & (u >= 0.0) & (u <= 1.0)
+    return np.where(valid, t, np.inf).min(axis=1)

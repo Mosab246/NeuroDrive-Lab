@@ -53,11 +53,33 @@ class PhysicsConfig(_Strict):
         return VehicleParams(model=self.model, tire_friction=self.tire_friction)
 
 
+class TrafficConfig(_Strict):
+    cars: int = Field(
+        default=0,
+        ge=0,
+        le=7,
+        description="Opponent cars on track during each episode (0 = drive alone). They are "
+        "driven by the scripted autopilot at random speeds, start ahead of the agent, are "
+        "seen by its distance sensors and can be bumped into.",
+    )
+    speed_range: tuple[float, float] = Field(
+        default=(0.35, 0.8),
+        description="Opponent pace: each opponent drives at a random share of the grip "
+        "limit in this range (lower = slower, so the agent has to overtake).",
+    )
+    gap_range: tuple[float, float] = Field(
+        default=(12.0, 30.0), description="Meters between consecutive cars at the start."
+    )
+
+
 class RewardConfig(_Strict):
     progress_per_meter: float = Field(default=0.1, gt=0)
     lap_bonus: float = Field(default=10.0, ge=0)
     crash_penalty: float = Field(default=10.0, ge=0)
     stall_penalty: float = Field(default=10.0, ge=0)
+    contact_penalty: float = Field(
+        default=1.0, ge=0, description="Per new hit on another car (traffic and races only)."
+    )
     stall_seconds: float = Field(default=5.0, gt=0)
     stall_min_progress: float = Field(
         default=2.0, ge=0, description="Meters of net progress required every stall_seconds."
@@ -82,6 +104,7 @@ class EnvConfig(_Strict):
         default=True, description="Random small start offsets on reset (seeded)."
     )
     physics: PhysicsConfig = PhysicsConfig()
+    traffic: TrafficConfig = TrafficConfig()
     sensors: SensorConfig = SensorConfig()
     observation: ObservationConfig = ObservationConfig()
     reward: RewardConfig = RewardConfig()

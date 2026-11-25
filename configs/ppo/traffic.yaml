@@ -1,0 +1,25 @@
+# PPO trained WITH TRAFFIC: every episode has 3 opponent cars (scripted, random paces,
+# starting ahead) that the agent sees with its sensors and can bump into. Otherwise identical
+# to multitrack.yaml, so the two runs differ only in the traffic.
+name: ppo_traffic
+
+env:
+  tracks: [beginner_oval, curved_circuit, technical_circuit]   # split: train only
+  random_start: true
+  laps_to_finish: 1
+  max_episode_seconds: 90.0
+  perturb_start: true
+  traffic:
+    cars: 3
+
+training:
+  total_timesteps: 2000000
+  n_envs: 8
+  vec_env: subproc
+  seed: 0
+  device: cpu
+  torch_threads: 4       # leaves CPU for NEAT if both run at once
+  eval_every_steps: 100000
+  eval_episodes: 10      # per validation track
+  checkpoint_every_steps: 100000
+  validation_tracks: [validation_circuit]

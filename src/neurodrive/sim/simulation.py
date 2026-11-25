@@ -159,6 +159,23 @@ class Simulation:
         self.progress.reset(np.array(body_center(self.state, self.params)), start_s)
         self._run = _Run()
 
+    def place(self, s: float, lateral: float = 0.0, origin_s: float = 0.0) -> None:
+        """Put the car, stationary, at arc length ``s`` (negative = behind the start line)
+        and ``lateral`` meters left of the centerline, facing the driving direction. Laps
+        are counted from the start/finish line, so cars on a starting grid all finish at
+        the same line. Used by races."""
+        point, tangent = self.track.point_at(s)
+        heading = math.atan2(float(tangent[1]), float(tangent[0]))
+        nx, ny = -math.sin(heading), math.cos(heading)
+        cx, cy = float(point[0]) + lateral * nx, float(point[1]) + lateral * ny
+        half = 0.5 * self.params.wheelbase
+        self.state = VehicleState(
+            x=cx - half * math.cos(heading), y=cy - half * math.sin(heading), heading=heading
+        )
+        self.start_s = origin_s
+        self.progress.reset(np.array([cx, cy]), origin_s)
+        self._run = _Run()
+
     def step(self, action: np.ndarray | tuple[float, float]) -> StepResult:
         """Advance one decision step (``config.dt`` seconds) with the given action."""
         if self.done:

@@ -109,6 +109,11 @@ class Track:
         i = int(np.searchsorted(self.cum_s, float(s) % self.length, side="right") - 1)
         return float(self.curvature[min(i, self.num_points - 1)])
 
+    def max_abs_curvature(self, s_values: FloatArray) -> float:
+        """``max(abs(curvature_at(s)) for s in s_values)``, in one vectorized lookup."""
+        idx = np.searchsorted(self.cum_s, np.asarray(s_values) % self.length, side="right") - 1
+        return float(np.abs(self.curvature[np.minimum(idx, self.num_points - 1)]).max())
+
     def project(self, points: FloatArray, hint: int | None = None) -> Projection:
         """Project points (``(K, 2)`` or ``(2,)``) onto the centerline.
 

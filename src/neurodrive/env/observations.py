@@ -98,11 +98,13 @@ class ObservationBuilder:
         )
         self.last_hits: RayHits | None = None
 
-    def build(self) -> np.ndarray:
+    def build(self, obstacles: list[np.ndarray] | None = None) -> np.ndarray:
+        """The observation for the car's current state. ``obstacles``: other cars' corner
+        arrays, which the distance sensors then see (used in races)."""
         sim = self.sim
         state, params = sim.state, sim.params
         origin = np.array(body_center(state, params))
-        hits = self.sensor.cast(origin, state.heading, sim.progress.segment)
+        hits = self.sensor.cast(origin, state.heading, sim.progress.segment, obstacles)
         self.last_hits = hits
         parts = [
             hits.distances / self.sensor.max_range,

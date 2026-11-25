@@ -162,13 +162,20 @@ def record_episode(
     )
 
 
-def env_for(meta: dict[str, Any] | None, track: str, laps: int | None = None) -> DrivingEnv:
+def env_for(
+    meta: dict[str, Any] | None,
+    track: str,
+    laps: int | None = None,
+    max_seconds: float | None = None,
+) -> DrivingEnv:
     """The environment a controller should be recorded in: the model's own environment
     config (sensors, observation) if it has one, on the requested track."""
     base = EnvConfig.model_validate(meta["env_config"]) if meta else EnvConfig()
     update: dict[str, Any] = {"tracks": (track,), "track": track}
     if laps is not None:
         update["laps_to_finish"] = laps
+    if max_seconds is not None:
+        update["max_episode_seconds"] = max_seconds
     return DrivingEnv(base.model_copy(update=update))
 
 
@@ -176,6 +183,11 @@ def verify_replay(replay: Replay) -> None:
     """Re-simulate the stored actions from the stored scenario; raise ``ReplayError`` if any
     stored state differs from the re-simulated one."""
     m = replay.meta
+    if m.get("multi_car"):
+        raise ReplayError(
+            "a race replay can't be re-simulated on its own: each car's path depends on "
+            "the other cars"
+        )
     env = DrivingEnv(EnvConfig.model_validate(m["env_config"]))
     options = {"perturb": m["perturb"], "random_start": m["random_start"], "track": m["track"]}
     env.reset(seed=m["scenario_seed"], options=options)

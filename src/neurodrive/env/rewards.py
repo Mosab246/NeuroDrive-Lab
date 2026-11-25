@@ -15,6 +15,8 @@ Design notes (see docs/ml-guide.md for the long version):
   A time penalty would make "crash early to stop the bleeding" attractive whenever the
   crash penalty is too small, which is a classic way to teach an agent to suicide.
 * There are **no checkpoint bonuses**: checkpoints only validate laps (in the simulator).
+* With traffic, each new hit on another car costs ``contact_penalty``: bumping also
+  slows the car down, but the explicit cost stops an agent from using others as brakes.
 """
 
 from __future__ import annotations
@@ -31,16 +33,20 @@ class RewardBreakdown:
     lap_bonus: float
     crash: float
     stall: float
+    contact: float = 0.0
 
     @property
     def total(self) -> float:
-        return self.progress + self.lap_bonus + self.crash + self.stall
+        return self.progress + self.lap_bonus + self.crash + self.stall + self.contact
 
 
-def compute_reward(result: StepResult, stalled: bool, cfg: RewardConfig) -> RewardBreakdown:
+def compute_reward(
+    result: StepResult, stalled: bool, cfg: RewardConfig, new_hits: int = 0
+) -> RewardBreakdown:
     return RewardBreakdown(
         progress=cfg.progress_per_meter * result.progress_delta,
         lap_bonus=cfg.lap_bonus if result.lap_completed else 0.0,
         crash=-cfg.crash_penalty if result.collided else 0.0,
         stall=-cfg.stall_penalty if stalled else 0.0,
+        contact=-cfg.contact_penalty * new_hits,
     )

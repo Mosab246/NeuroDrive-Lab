@@ -296,6 +296,12 @@ def _record(entries: list, args: argparse.Namespace) -> list:
 
     if len(entries) > 8:
         raise ValueError(f"{len(entries)} drivers chosen; the viewer shows at most 8")
+    if getattr(args, "real", False):
+        from neurodrive.replay.race import record_race
+
+        laps = args.laps or 2
+        print(f"racing {len(entries)} cars on {args.track}, {laps} laps (cars can touch)")
+        return record_race(entries, args.track, laps=laps)
     print(f"recording {len(entries)} driver(s) on {args.track}, scenario seed {args.seed}")
     return record_many(
         entries, args.track, args.seed, random_start=args.start == "random", laps=args.laps
@@ -332,7 +338,8 @@ def _cmd_race(args: argparse.Namespace) -> int:
     entries += [driver_entry(d) for d in args.driver or []]
     if not entries:
         raise ValueError("choose drivers with --driver and/or --benchmark")
-    return _show_replays(_record(entries, args), "Ghost race", args)
+    title = "Race" if args.real else "Ghost race"
+    return _show_replays(_record(entries, args), title, args)
 
 
 def _cmd_timeline(args: argparse.Namespace) -> int:
@@ -354,7 +361,8 @@ def _cmd_demo(args: argparse.Namespace) -> int:
             "Train some with `neurodrive benchmark run --config configs/benchmark/default.yaml`."
         )
     entries += [baseline_entry("heuristic"), baseline_entry("autopilot")]
-    return _show_replays(_record(entries, args), "Ghost race", args)
+    title = "Race" if args.real else "Ghost race"
+    return _show_replays(_record(entries, args), title, args)
 
 
 def _cmd_list_tracks(_: argparse.Namespace) -> int:
@@ -449,7 +457,7 @@ def build_parser() -> argparse.ArgumentParser:
         a.add_argument("--height", type=int, default=860)
         a.add_argument("--frames", type=int, default=None, help=argparse.SUPPRESS)
 
-    rp = sub.add_parser("replay", help="play back saved replay files (several = ghost race)")
+    rp = sub.add_parser("replay", help="play back saved replay files (several = a race)")
     rp.add_argument("files", nargs="+", help="replay .npz files on the same track")
     rp.add_argument("--verify", action="store_true", help="re-simulate and check each replay")
     viewer_args(rp, record=False)
@@ -467,6 +475,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     race.add_argument("--benchmark", default=None, help="add every best model of a benchmark")
     race.add_argument("--seeds", default=None, help="with --benchmark: only these seeds, e.g. 0,1")
+    race.add_argument(
+        "--real", action="store_true", help="a real race: cars see and bump into each other"
+    )
     viewer_args(race)
     race.set_defaults(func=_cmd_race)
 
@@ -477,6 +488,9 @@ def build_parser() -> argparse.ArgumentParser:
     tl.set_defaults(func=_cmd_timeline)
 
     dm = sub.add_parser("demo", help="ghost race of the benchmark models and scripted drivers")
+    dm.add_argument(
+        "--real", action="store_true", help="a real race: cars see and bump into each other"
+    )
     viewer_args(dm)
     dm.set_defaults(func=_cmd_demo)
     return p
