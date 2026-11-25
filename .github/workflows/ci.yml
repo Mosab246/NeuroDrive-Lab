@@ -17,7 +17,7 @@ jobs:
       SDL_AUDIODRIVER: dummy
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.4.0
       - name: Install
         run: uv sync --python ${{ matrix.python }}
       - name: Lint
