@@ -1,0 +1,25 @@
+# The longer benchmark: same setup as default.yaml (Phase 6) but 5x the budget, to see
+# whether the PPO-vs-NEAT ranking changes with more training.
+name: ppo_vs_neat_5m
+
+budget_env_steps: 5000000     # per training run, for both algorithms
+seeds: [0, 1, 2]
+algorithms: [ppo, neat]
+
+ppo_config: configs/ppo/multitrack.yaml
+neat_config: configs/neat/multitrack.yaml
+
+ppo_overrides:
+  eval_every_steps: 100000
+  checkpoint_every_steps: 250000
+neat_overrides:
+  validate_every: 1
+  checkpoint_every: 10
+
+baselines: [heuristic, autopilot, smoothed_random]
+
+eval:
+  tracks: "beginner_oval,curved_circuit,technical_circuit,validation_circuit,unseen_a,unseen_b,proc:20"
+  episodes_per_track: 20
+  split: test
+  random_start: true
