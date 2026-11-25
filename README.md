@@ -12,7 +12,10 @@ when they get the same car, sensors, tracks and budget?
 > See [results](docs/results.md) and the
 > [benchmark report](results/benchmark/ppo_vs_neat_1m/report.md).
 
-![PPO driving with its sensor rays shown](docs/images/phase3-ppo-driving.png)
+![Ghost race: trained PPO and NEAT drivers against scripted ones](docs/images/demo-ghost-race.gif)
+
+*`neurodrive demo`: the six benchmark models (3 PPO, 3 NEAT seeds) and two scripted
+drivers on a track none of them trained on, at 2x speed.*
 
 ## What exists today
 
@@ -48,13 +51,23 @@ architecture review). See
 
 ## Install (Windows PowerShell)
 
-Requires [uv](https://docs.astral.sh/uv/). uv downloads Python 3.12 if needed.
+Requires [uv](https://docs.astral.sh/uv/) and git. uv downloads Python 3.12 if needed;
+3.12 and 3.13 are tested. About 0.8 GB once installed (PyTorch CPU build included); no GPU
+needed.
 
 ```powershell
+# install uv once (see https://docs.astral.sh/uv/ for other ways)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
 git clone <this repo>
 cd NeuroDrive-Lab
 uv sync
+uv run python -m neurodrive play     # a window should open: drive with the arrow keys
 ```
+
+On Linux or macOS the same `uv` commands work. Problems: see
+[docs/troubleshooting.md](docs/troubleshooting.md). To check the results yourself, start
+with the 1-minute experiment in [docs/reproducing.md](docs/reproducing.md).
 
 ## Quick start
 
@@ -178,10 +191,16 @@ docs/           spec, architecture review, physics, measured results
 - [docs/ml-guide.md](docs/ml-guide.md): the learning problem: observations, actions, reward, endings
 - [docs/training-guide.md](docs/training-guide.md): how to train, watch, resume and evaluate
 - [docs/results.md](docs/results.md): measured numbers only, with commands
+- [docs/reproducing.md](docs/reproducing.md): a 1-minute experiment, and how to rerun everything
+- [docs/troubleshooting.md](docs/troubleshooting.md): known problems and fixes
+- [results/benchmark/ppo_vs_neat_1m/report.md](results/benchmark/ppo_vs_neat_1m/report.md):
+  the generated PPO-vs-NEAT benchmark report
 - [docs/phases/phase-1.md](docs/phases/phase-1.md), [docs/phases/phase-2.md](docs/phases/phase-2.md),
   [docs/phases/phase-3.md](docs/phases/phase-3.md),
   [docs/phases/phase-4.md](docs/phases/phase-4.md),
-  [docs/phases/phase-5.md](docs/phases/phase-5.md): phase reports
+  [docs/phases/phase-5.md](docs/phases/phase-5.md),
+  [docs/phases/phase-6.md](docs/phases/phase-6.md),
+  [docs/phases/phase-7.md](docs/phases/phase-7.md): phase reports
 
 ## License
 

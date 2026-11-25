@@ -297,7 +297,7 @@ class ReplayViewer:
             ("track", self.track.spec.name),
             ("time", f"{_fmt_time(self.t)} / {_fmt_time(self.duration)}"),
             ("playback", f"{self.speed:g}x {'playing' if self.playing else 'paused'}"),
-            ("fps", f"{self.measured_fps:4.0f}"),
+            ("fps", f"{self.measured_fps:4.0f}" if self.measured_fps > 0 else "-"),
         ):
             self.screen.blit(self.font.render(label, True, R.TEXT_DIM), (x0, y))
             img = self.font.render(value, True, R.TEXT)
