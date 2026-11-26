@@ -34,6 +34,29 @@ def _cmd_play(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_tune(args: argparse.Namespace) -> int:
+    from neurodrive.training.tune import best_trial, run_sweep
+
+    out = Path(args.out)
+    seeds = tuple(int(x) for x in args.seeds.split(","))
+    run_sweep(
+        Path(args.config),
+        out,
+        trials=args.trials,
+        seeds=seeds,
+        timesteps=args.timesteps,
+        workers=args.workers,
+        validation_tracks=args.validation_tracks,
+        validation_episodes=args.validation_episodes,
+    )
+    best = best_trial(out)
+    print(
+        f"best: {best['trial']} (worst-seed late validation laps {best['stability']:.1%}, "
+        f"best lap {best['best_lap']:.2f} s); all trials in {out / 'trials.json'}"
+    )
+    return 0
+
+
 def _cmd_train(args: argparse.Namespace) -> int:
     runs_dir = Path(args.runs_dir or f"runs/{args.algorithm}")
     if args.algorithm == "neat":
@@ -576,6 +599,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--validation-episodes", type=int, default=None, help="validation scenarios per track"
     )
     tr.set_defaults(func=_cmd_train)
+
+    tu = sub.add_parser("tune", help="PPO hyperparameter search, scored on validation tracks")
+    tu.add_argument("algorithm", choices=["ppo"])
+    tu.add_argument("--config", default="configs/ppo/multitrack.yaml", help="base experiment")
+    tu.add_argument("--out", default="runs/tune/ppo", help="sweep folder (resumable)")
+    tu.add_argument("--trials", type=int, default=8, help="settings to try (trial 0 = defaults)")
+    tu.add_argument("--seeds", default="0,1", help="seeds per setting")
+    tu.add_argument("--timesteps", type=int, default=1_000_000, help="steps per training run")
+    tu.add_argument("--workers", type=int, default=4, help="trainings at once")
+    tu.add_argument("--validation-tracks", default="validation_circuit,pval:3,split:train")
+    tu.add_argument("--validation-episodes", type=int, default=5)
+    tu.set_defaults(func=_cmd_tune)
 
     bm = sub.add_parser("benchmark", help="run the PPO-vs-NEAT benchmark, or rebuild its report")
     bm.add_argument("action", choices=["run", "report", "reselect"])
