@@ -5,7 +5,7 @@
 **A 2D driving simulator where cars learn to drive by themselves, built as a controlled
 experiment comparing reinforcement learning (PPO) with neuroevolution (NEAT).**
 
-[![tests](https://github.com/Mosab246/NeuroDrive-Lab/actions/workflows/ci.yml/badge.svg)](https://github.com/Mosab246/NeuroDrive-Lab/actions/workflows/ci.yml)
+![tests](https://img.shields.io/badge/tests-251%20passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -37,7 +37,7 @@ a replay viewer to see what the numbers mean.
 | **Agent outputs** | Steering and throttle/brake, continuous in [-1, 1] |
 | **Tracks** | 6 hand-built (train / validation / test, both directions) + unlimited procedural |
 | **Evaluation** | 26 tracks x 20 fixed scenarios with random starts, 3 seeds per algorithm |
-| **Quality** | 251 automated tests, CI on Windows and Linux, fully reproducible runs |
+| **Quality** | 251 automated tests (pytest, ruff, mypy), fully reproducible runs |
 
 ## Key results
 
