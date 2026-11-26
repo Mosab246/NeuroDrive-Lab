@@ -29,7 +29,9 @@ class BenchmarkConfig(_Strict):
     algorithms: tuple[str, ...] = ("ppo", "neat")
     ppo_config: str
     neat_config: str
+    sac_config: str | None = Field(default=None, description="Needed when 'sac' is benchmarked.")
     ppo_overrides: dict[str, Any] = Field(default_factory=dict, description="training.* keys")
+    sac_overrides: dict[str, Any] = Field(default_factory=dict, description="training.* keys")
     neat_overrides: dict[str, Any] = Field(default_factory=dict, description="neat.* keys")
     baselines: tuple[str, ...] = ("heuristic", "autopilot", "smoothed_random")
     eval: EvalSettings

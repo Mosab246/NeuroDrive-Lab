@@ -1,4 +1,4 @@
-"""Run the PPO-vs-NEAT benchmark: train every (algorithm, seed) under the same environment-step
+"""Run the algorithm benchmark (PPO, SAC, NEAT): train every (algorithm, seed) under the same
 budget, then evaluate every chosen model and every baseline on the same test scenarios.
 
 Everything goes into ``runs/benchmark/<name>/``:
@@ -31,11 +31,13 @@ from neurodrive.experiments.metadata import run_metadata
 from neurodrive.training.config import (
     NEATExperiment,
     PPOExperiment,
+    SACExperiment,
     load_neat_config,
     load_ppo_config,
+    load_sac_config,
 )
 
-MODEL_FILE = {"ppo": "best_model.zip", "neat": "best_model.pkl"}
+MODEL_FILE = {"ppo": "best_model.zip", "sac": "best_model.zip", "neat": "best_model.pkl"}
 
 
 class Benchmark:
@@ -72,6 +74,16 @@ class Benchmark:
         data["training"].update({"seed": seed, "total_timesteps": self.config.budget_env_steps})
         return PPOExperiment.model_validate(data)
 
+    def sac_experiment(self, seed: int) -> SACExperiment:
+        if self.config.sac_config is None:
+            raise ValueError("benchmarking 'sac' needs sac_config in the benchmark YAML")
+        base = load_sac_config(self.config.sac_config)
+        data = base.model_dump()
+        data["name"] = f"{self.config.name}_sac"
+        data["training"].update(self.config.sac_overrides)
+        data["training"].update({"seed": seed, "total_timesteps": self.config.budget_env_steps})
+        return SACExperiment.model_validate(data)
+
     def neat_experiment(self, seed: int) -> NEATExperiment:
         base = load_neat_config(self.config.neat_config)
         data = base.model_dump()
@@ -93,6 +105,10 @@ class Benchmark:
             from neurodrive.training.ppo import train_ppo
 
             run_dir = train_ppo(self.ppo_experiment(seed), runs_root=root, log=self.log)
+        elif algo == "sac":
+            from neurodrive.training.ppo import train_ppo
+
+            run_dir = train_ppo(self.sac_experiment(seed), runs_root=root, log=self.log)
         elif algo == "neat":
             from neurodrive.training.neat_trainer import train_neat
 

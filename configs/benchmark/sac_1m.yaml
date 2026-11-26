@@ -1,0 +1,20 @@
+# Phase 13: SAC under the Phase 6 rules (1M environment steps, 3 seeds, 26 tracks x 20 test
+# scenarios). Checkpoints chosen on the 7-track validation set, like the re-selected PPO and
+# NEAT results of ppo_vs_neat_1m, so the three algorithms are compared on equal terms.
+name: sac_1m
+
+budget_env_steps: 1000000
+seeds: [0, 1, 2]
+algorithms: [sac]
+
+ppo_config: configs/ppo/multitrack.yaml
+neat_config: configs/neat/multitrack.yaml
+sac_config: configs/sac/multitrack.yaml
+
+baselines: []
+
+eval:
+  tracks: "beginner_oval,curved_circuit,technical_circuit,validation_circuit,unseen_a,unseen_b,proc:20"
+  episodes_per_track: 20
+  split: test
+  random_start: true

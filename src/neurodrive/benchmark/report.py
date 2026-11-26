@@ -26,7 +26,10 @@ import numpy as np
 from neurodrive.evaluation.metrics import wilson_interval
 from neurodrive.sim.track import load_any_track
 
-COLORS = {"ppo": "#2b7bba", "neat": "#e07b39"}
+COLORS = {"ppo": "#2b7bba", "sac": "#3a9a5b", "neat": "#e07b39"}
+#: Report order. PPO and SAC (Stable-Baselines3) count timesteps; NEAT counts env steps.
+ALGORITHMS = ("ppo", "sac", "neat")
+SB3 = ("ppo", "sac")
 
 
 def _read_csv(path: Path) -> list[dict[str, str]]:
@@ -38,7 +41,7 @@ def learning_curve(algo: str, run_dir: Path) -> list[dict[str, float]]:
     """Validation results against env steps and wall-clock seconds, for one run."""
     rows = _read_csv(run_dir / "eval_history.csv")
     out = []
-    if algo == "ppo":
+    if algo in SB3:
         for r in rows:
             out.append(
                 {
@@ -107,7 +110,7 @@ def build_report(bench_dir: Path, out_dir: Path) -> Path:
 
     # ---------------------------------------------------------------- per run
     runs: list[dict[str, Any]] = []
-    curves: dict[str, list[list[dict[str, float]]]] = {"ppo": [], "neat": []}
+    curves: dict[str, list[list[dict[str, float]]]] = {}
     per_track_rows: list[dict[str, Any]] = []
     for entry in manifest["runs"].values():
         if entry.get("status") != "evaluated":
@@ -115,12 +118,12 @@ def build_report(bench_dir: Path, out_dir: Path) -> Path:
         algo, seed, run_dir = entry["algorithm"], entry["seed"], Path(entry["run_dir"])
         summary = json.loads((run_dir / "train_summary.json").read_text(encoding="utf-8"))
         curve = learning_curve(algo, run_dir)
-        curves[algo].append(curve)
+        curves.setdefault(algo, []).append(curve)
         first_lap = next((c["steps"] for c in curve if c["completion"] > 0), None)
         all_laps = next((c["steps"] for c in curve if c["completion"] >= 1.0), None)
         episodes = _read_csv(bench_dir / "eval" / f"{algo}_seed{seed}" / "episodes.csv")
         stats = episode_stats(episodes)
-        steps_used = summary["total_timesteps"] if algo == "ppo" else summary["env_steps_total"]
+        steps_used = summary["total_timesteps"] if algo in SB3 else summary["env_steps_total"]
         best_meta = json.loads((run_dir / ("best_model.meta.json")).read_text(encoding="utf-8"))
         best_at = best_meta.get("timesteps", best_meta.get("env_steps_total"))
         runs.append(
@@ -151,6 +154,7 @@ def build_report(bench_dir: Path, out_dir: Path) -> Path:
                 }
             )
     runs.sort(key=lambda r: (r["algorithm"], r["seed"]))
+    present = [a for a in ALGORITHMS if any(r["algorithm"] == a for r in runs)]
 
     baselines: dict[str, dict[str, Any]] = {}
     for name in cfg["baselines"]:
@@ -160,10 +164,8 @@ def build_report(bench_dir: Path, out_dir: Path) -> Path:
 
     # ---------------------------------------------------------------- aggregate
     aggregate: dict[str, Any] = {}
-    for algo in ("ppo", "neat"):
+    for algo in present:
         rs = [r for r in runs if r["algorithm"] == algo]
-        if not rs:
-            continue
         aggregate[algo] = {
             "seeds": [r["seed"] for r in rs],
             "test_completion_rate": _spread([r["test_completion_rate"] for r in rs]),
@@ -184,7 +186,7 @@ def build_report(bench_dir: Path, out_dir: Path) -> Path:
     # Head-to-head lap times per track, seed means.
     tracks = sorted({r["track"] for r in per_track_rows})
     track_means: dict[str, dict[str, float]] = {}
-    for algo in ("ppo", "neat"):
+    for algo in present:
         track_means[algo] = {}
         for t in tracks:
             vals = [
@@ -193,8 +195,11 @@ def build_report(bench_dir: Path, out_dir: Path) -> Path:
                 if r["algorithm"] == algo and r["track"] == t and r["lap_time_mean"] is not None
             ]
             track_means[algo][t] = float(np.mean(vals)) if vals else np.nan
+    both = "ppo" in present and "neat" in present
     neat_faster = sum(
-        1 for t in tracks if track_means["neat"].get(t, np.nan) < track_means["ppo"].get(t, np.nan)
+        1
+        for t in tracks
+        if both and track_means["neat"].get(t, np.nan) < track_means["ppo"].get(t, np.nan)
     )
     pairings = [
         (p["test_lap_time_mean"], n["test_lap_time_mean"])
@@ -230,8 +235,9 @@ def build_report(bench_dir: Path, out_dir: Path) -> Path:
         encoding="utf-8",
     )
     _plot_curves(curves, budget, out_dir)
-    _plot_tracks(track_means, tracks, out_dir)
+    _plot_tracks(track_means, tracks, out_dir, present)
     _write_markdown(
+        present,
         cfg,
         runs,
         aggregate,
@@ -275,15 +281,18 @@ def _plot_curves(curves: dict[str, list[list[dict[str, float]]]], budget: int, o
     plt.close(fig)
 
 
-def _plot_tracks(means: dict[str, dict[str, float]], tracks: list[str], out: Path) -> None:
+def _plot_tracks(
+    means: dict[str, dict[str, float]], tracks: list[str], out: Path, present: list[str]
+) -> None:
     order = sorted(tracks, key=lambda t: (not t.startswith("proc_"), t))[::-1]
     y = np.arange(len(order))
     fig, ax = plt.subplots(figsize=(8, 0.32 * len(order) + 1.5), dpi=100)
-    for off, algo in ((-0.18, "ppo"), (0.18, "neat")):
+    h = 0.7 / len(present)
+    for i, algo in enumerate(present):
         ax.barh(
-            y + off,
+            y + (i - (len(present) - 1) / 2) * h,
             [means[algo][t] for t in order],
-            height=0.34,
+            height=h * 0.95,
             color=COLORS[algo],
             label=algo.upper(),
         )
@@ -297,7 +306,10 @@ def _plot_tracks(means: dict[str, dict[str, float]], tracks: list[str], out: Pat
     plt.close(fig)
 
 
-def _write_markdown(cfg, runs, agg, baselines, neat_faster, n_tracks, neat_pairs, n_pairs, out):
+def _write_markdown(
+    present, cfg, runs, agg, baselines, neat_faster, n_tracks, neat_pairs, n_pairs, out
+):
+    configs = [cfg.get(f"{a}_config") for a in present]
     lines = [
         f"# Benchmark: {cfg['name']}",
         "",
@@ -305,7 +317,7 @@ def _write_markdown(cfg, runs, agg, baselines, neat_faster, n_tracks, neat_pairs
         "",
         f"- Budget: **{cfg['budget_env_steps']:,} environment steps** per training run",
         f"- Seeds: {', '.join(str(s) for s in cfg['seeds'])} for each algorithm",
-        f"- Training configs: `{cfg['ppo_config']}`, `{cfg['neat_config']}`",
+        "- Training configs: " + ", ".join(f"`{c}`" for c in configs if c),
         f"- Test: tracks `{cfg['eval']['tracks']}`, {cfg['eval']['episodes_per_track']} "
         f"{cfg['eval']['split']} scenarios per track, random start "
         f"{cfg['eval']['random_start']}",
@@ -326,7 +338,13 @@ def _write_markdown(cfg, runs, agg, baselines, neat_faster, n_tracks, neat_pairs
             f"{r['test_completed']}/{r['test_episodes']} | "
             f"{_fmt(r['test_lap_time_mean'])} s | {100 * r['test_collision_rate']:.1f}% |"
         )
-    lines += ["", "## Across seeds", "", "| | PPO | NEAT |", "|---|---|---|"]
+    lines += [
+        "",
+        "## Across seeds",
+        "",
+        "| | " + " | ".join(a.upper() for a in present) + " |",
+        "|---|" + "---|" * len(present),
+    ]
 
     def cell(algo: str, key: str, fmt: str, scale: float = 1.0) -> str:
         if algo not in agg:
@@ -349,26 +367,30 @@ def _write_markdown(cfg, runs, agg, baselines, neat_faster, n_tracks, neat_pairs
         ("Training wall-clock (min)", "train_wall_seconds", "{:.1f}", 1 / 60),
     ]
     for label, key, fmt, scale in rows:
+        lines.append(f"| {label} | " + " | ".join(cell(a, key, fmt, scale) for a in present) + " |")
+    for algo in present:
+        lo, hi = agg[algo]["pooled_completion_ci95"]
         lines.append(
-            f"| {label} | {cell('ppo', key, fmt, scale)} | {cell('neat', key, fmt, scale)} |"
+            f"| Pooled test laps, {algo.upper()} | {agg[algo]['pooled_completed']}/"
+            f"{agg[algo]['pooled_episodes']} (95% CI {100 * lo:.1f} to {100 * hi:.1f}%)"
+            + " |"
+            * len(present)
         )
-    for algo in ("ppo", "neat"):
-        if algo in agg:
-            lo, hi = agg[algo]["pooled_completion_ci95"]
-            lines.append(
-                f"| Pooled test laps, {algo.upper()} | {agg[algo]['pooled_completed']}/"
-                f"{agg[algo]['pooled_episodes']} (95% CI {100 * lo:.1f} to {100 * hi:.1f}%) | |"
-            )
     lines += [
         "",
         "Values are mean ± standard deviation across seeds, with the range. With this few "
         "seeds, treat differences smaller than the ranges as unresolved.",
         "",
-        f"- Mean lap time per track (averaged over seeds): NEAT faster on {neat_faster} of "
-        f"{n_tracks} tracks.",
-        f"- Seed pairings (each PPO seed vs each NEAT seed, overall test lap time): NEAT "
-        f"faster in {neat_pairs} of {n_pairs}.",
-        "",
+    ]
+    if "ppo" in present and "neat" in present:
+        lines += [
+            f"- Mean lap time per track (averaged over seeds): NEAT faster on {neat_faster} of "
+            f"{n_tracks} tracks.",
+            f"- Seed pairings (each PPO seed vs each NEAT seed, overall test lap time): NEAT "
+            f"faster in {neat_pairs} of {n_pairs}.",
+            "",
+        ]
+    lines += [
         "## Baselines (same test scenarios)",
         "",
         "| Driver | Test laps | Lap time | Collisions |",
