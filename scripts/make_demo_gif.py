@@ -17,7 +17,9 @@ import pygame
 from PIL import Image
 
 from neurodrive.replay.lab import baseline_entry, benchmark_entries
+from neurodrive.replay.race import record_race
 from neurodrive.replay.recorder import record_many
+from neurodrive.ui import art
 from neurodrive.ui import renderer as R
 from neurodrive.ui.clock import SPEEDS
 from neurodrive.ui.replay_viewer import (
@@ -50,27 +52,50 @@ def main() -> None:
     p.add_argument("--speed", type=float, default=2.0, help="playback speed")
     p.add_argument("--fps", type=int, default=15)
     p.add_argument("--width", type=int, default=900)
+    p.add_argument("--real", action="store_true", help="a real race (cars collide)")
+    p.add_argument("--laps", type=int, default=1)
+    p.add_argument("--no-baselines", action="store_true", help="only the benchmark models")
+    p.add_argument("--camera", choices=["track", "follow", "tv"], default="track")
+    p.add_argument("--focus", type=int, default=0, help="car to follow (follow camera)")
+    p.add_argument("--start", type=float, default=None, help="first second to include")
+    p.add_argument("--end", type=float, default=None, help="last second to include")
+    p.add_argument("--crop", action="store_true", help="track view only (no side panel)")
     args = p.parse_args()
 
     entries = benchmark_entries(args.benchmark)
-    entries += [baseline_entry("heuristic"), baseline_entry("autopilot")]
-    replays = record_many(entries, args.track, 0)
-    viewer = ReplayViewer(replays, title="Ghost race", size=(1400, 860))
+    if not args.no_baselines:
+        entries += [baseline_entry("heuristic"), baseline_entry("autopilot")]
+    if args.real:
+        replays = record_race(entries, args.track, laps=args.laps, with_network=False)
+        title = "Race"
+    else:
+        replays = record_many(entries, args.track, 0)
+        title = "Ghost race"
+    art.GRAIN = 0  # fine texture grain is invisible in a small GIF but ruins compression
+    viewer = ReplayViewer(replays, title=title, size=(1400, 860))
+    viewer.camera_mode = args.camera
+    viewer.focus = args.focus
     if args.speed in SPEEDS:
         viewer.speed_index = SPEEDS.index(args.speed)
     frames = []
     step = args.speed / args.fps
-    t = 0.0
+    t = viewer.t_start
+    first = viewer.t_start if args.start is None else args.start
+    last = viewer.duration if args.end is None else min(args.end, viewer.duration)
     while True:
         viewer.seek(t)
         viewer.draw()
-        raw = pygame.image.tobytes(viewer.screen, "RGB")
-        img = Image.frombytes("RGB", viewer.screen.get_size(), raw)
-        h = round(img.height * args.width / img.width)
-        frames.append(img.resize((args.width, h), Image.Resampling.LANCZOS))
-        if t >= viewer.duration:
+        if t >= first:
+            raw = pygame.image.tobytes(viewer.screen, "RGB")
+            img = Image.frombytes("RGB", viewer.screen.get_size(), raw)
+            if args.crop:
+                v = viewer.track_view.viewport
+                img = img.crop((v.left, v.top, v.right, v.bottom))
+            h = round(img.height * args.width / img.width)
+            frames.append(img.resize((args.width, h), Image.Resampling.LANCZOS))
+        if t >= last:
             break
-        t = min(t + step, viewer.duration)
+        t = min(t + step, last)
     pygame.quit()
     palette = _palette(frames[len(frames) // 2])
     quantized = [f.quantize(palette=palette, dither=Image.Dither.NONE) for f in frames]

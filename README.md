@@ -10,10 +10,10 @@ experiment comparing reinforcement learning (PPO) with neuroevolution (NEAT).**
 ![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-![Ghost race: trained PPO and NEAT drivers against scripted ones](docs/images/demo-ghost-race.gif)
+![A real race: trained PPO and NEAT drivers against scripted ones](docs/images/demo-race.gif)
 
-*Six trained drivers (3 PPO, 3 NEAT) and two scripted drivers on a track none of them saw
-during training. 2x speed.*
+*A real race (cars see and collide with each other) between six trained drivers (3 PPO,
+3 NEAT) and two scripted drivers, on a track none of them saw during training. 2x speed.*
 
 </div>
 
@@ -68,6 +68,11 @@ scripted autopilot 28.02 s, sensor heuristic 29.56 s (both 100%). Reports:
 - An earlier comparison with unequal budgets (NEAT ~6x more steps) had suggested NEAT was
   faster at 1M too. Equal budgets and several seeds are what make the comparison meaningful;
   the benchmark runner enforces both.
+- How the best checkpoint is chosen matters as much as how long you train. Re-selecting
+  each run's checkpoint on 7 validation tracks instead of 1 (no retraining) raised PPO from
+  92.6% to **97.6%** of laps at 1M and from 87.8% to **96.9%** at 5M; NEAT stayed at
+  98.8% / 100%. Reports: [1M](results/benchmark/ppo_vs_neat_1m/reselection.md),
+  [5M](results/benchmark/ppo_vs_neat_5m/reselection.md).
 
 ### 2. Training on one track overfits, in a very specific way
 
@@ -93,6 +98,10 @@ With tyres that can slip (understeer, oversteer, spins), 3M steps, 3 seeds:
 
 Hand-written rules that work on the easy physics fail 70% of the time here; both learned
 agents adapt. [Report](results/benchmark/ppo_vs_neat_dynamic_3m/report.md).
+
+<p align="center">
+  <img src="docs/images/demo-drift.gif" width="60%" alt="A PPO car sliding through a corner, leaving skid marks and tyre smoke">
+</p>
 
 ### 4. Racing: two very different driving styles
 
@@ -145,6 +154,9 @@ All numbers come from logged runs with the exact commands, dates and hardware in
 - Resumable multi-seed benchmark with equal environment-step budgets and a generated report
 
 **Visualization and racing**
+- Broadcast-style viewer: procedural track art (kerbs, mown grass, checkered line), car
+  sprites, skid marks and tyre smoke, F1 start lights, TV camera that follows the closest
+  battle, mini-map, live gaps and position changes; MP4 export (`--video`)
 - Interactive playground (drive yourself or watch any driver, sensor-ray overlay)
 - Replay viewer: ghost races, learning timelines, evolved-network and policy views, 60 FPS
   with 8 cars
@@ -190,7 +202,9 @@ uv run python -m neurodrive play           # drive yourself: arrow keys / WASD
 | Task | Command (`uv run python -m neurodrive ...`) |
 |---|---|
 | Watch a ghost race of the benchmark models | `demo` |
-| Watch a real race (cars collide) | `demo --real` |
+| Watch a real race (cars collide) | `demo --real --camera tv` |
+| Save a race as a video | `demo --real --camera tv --video race.mp4` |
+| Re-pick the best checkpoints of a benchmark | `benchmark reselect --dir runs/benchmark/<name>` |
 | Train PPO (~25 min on CPU) | `train ppo --config configs/ppo/default.yaml` |
 | Evolve NEAT (~18 min on CPU) | `train neat --config configs/neat/default.yaml` |
 | Watch a trained model | `play --model runs/ppo/<run>/best_model.zip` |

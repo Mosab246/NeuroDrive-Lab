@@ -62,8 +62,12 @@ def benchmark_entries(bench_dir: str | Path, seeds: list[int] | None = None) -> 
         r = runs[key]
         if seeds is not None and r["seed"] not in seeds:
             continue
-        name = "best_model.zip" if r["algorithm"] == "ppo" else "best_model.pkl"
-        model = Path(r["run_dir"]) / name
+        ext = ".zip" if r["algorithm"] == "ppo" else ".pkl"
+        run = Path(r["run_dir"])
+        # Prefer the re-selected checkpoint (`neurodrive benchmark reselect`) when there is one.
+        model = run / f"best_model_v2{ext}"
+        if not model.is_file():
+            model = run / f"best_model{ext}"
         if model.is_file():
             out.append(model_entry(model, f"{r['algorithm'].upper()} seed {r['seed']}"))
     return out
