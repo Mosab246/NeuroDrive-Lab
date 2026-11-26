@@ -547,6 +547,10 @@ class ReplayViewer:
         title = f"{car.r.label}: {car.r.meta.get('kind_description', '')}"
         self.screen.blit(self.font.render(title, True, (20, 24, 30)), (view.x + 16, view.y + 10))
         body = view.inflate(-32, -60).move(0, 14)
+        graph = (car.r.meta.get("network") or {}).get("graph")
+        if graph is not None and car.r.node_values is not None and len(car.r.node_values):
+            self._draw_live_network(car, body, graph)
+            return
         if car.r.network_png is not None:
             if car.network_surface is None:
                 car.network_surface = pygame.image.load(io.BytesIO(car.r.network_png), "n.png")
@@ -566,6 +570,55 @@ class ReplayViewer:
             msg = f"{car.r.meta.get('kind_description', 'scripted')}: {msg}"
         img = self.font.render(msg, True, (20, 24, 30))
         self.screen.blit(img, img.get_rect(center=body.center))
+
+    def _draw_live_network(self, car: _Car, body: pygame.Rect, graph: dict) -> None:
+        """The evolved network at this moment: each node shows its current value, each
+        connection how strongly it is pushing right now (weight x the value it carries).
+        Blue = positive, red = negative; brighter / thicker = stronger."""
+        nodes = car.r.node_values
+        assert nodes is not None
+        i = min(car.r.index_at(self.t), len(nodes) - 1)
+        values = dict(zip(graph["order"], nodes[i].tolist(), strict=True))
+        # Room on the left for input labels and on the right for output labels.
+        area = pygame.Rect(body.left + 170, body.top + 20, body.width - 420, body.height - 60)
+
+        def at(k: int) -> tuple[int, int]:
+            x, y = graph["pos"][str(k)] if str(k) in graph["pos"] else graph["pos"][k]
+            return (round(area.left + x * area.width), round(area.top + (1 - y) * area.height))
+
+        pos = {k: at(k) for k in graph["order"]}
+        flows = [w * values.get(a, 0.0) for a, _, w in graph["edges"]]
+        top = max([abs(f) for f in flows] + [1e-6])
+        dark = (20, 24, 30)
+        for (a, b, _w), f in sorted(
+            zip(graph["edges"], flows, strict=True), key=lambda e: abs(e[1])
+        ):
+            s = min(1.0, abs(f) / top)
+            base = (43, 123, 186) if f >= 0 else (217, 83, 79)
+            color = tuple(int(235 - (235 - c) * (0.15 + 0.85 * s)) for c in base)
+            pygame.draw.line(self.screen, color, pos[a], pos[b], max(1, round(1 + 5 * s)))
+        names = graph.get("input_names") or [str(k) for k in graph["inputs"]]
+        out_names = ["steering", "throttle/brake"]
+        for k in graph["order"]:
+            v = values.get(k, 0.0)
+            s = min(1.0, abs(v))
+            base = (43, 123, 186) if v >= 0 else (217, 83, 79)
+            fill = tuple(int(235 - (235 - c) * s) for c in base)
+            radius = 9 if k in graph["outputs"] else 7
+            pygame.draw.circle(self.screen, fill, pos[k], radius)
+            pygame.draw.circle(self.screen, dark, pos[k], radius, 1)
+        for k, name in zip(graph["inputs"], names, strict=False):
+            img = self.font_small.render(f"{name} {values.get(k, 0.0):+.2f}", True, dark)
+            self.screen.blit(img, img.get_rect(midright=(pos[k][0] - 14, pos[k][1])))
+        for k, name in zip(graph["outputs"], out_names, strict=False):
+            img = self.font.render(f"{name} {values.get(k, 0.0):+.2f}", True, dark)
+            self.screen.blit(img, img.get_rect(midleft=(pos[k][0] + 16, pos[k][1])))
+        note = (
+            f"{len(graph['hidden'])} hidden neurons, {len(graph['edges'])} connections; "
+            "line strength = weight x signal flowing through it right now"
+        )
+        img = self.font_small.render(note, True, dark)
+        self.screen.blit(img, img.get_rect(midbottom=(body.centerx, body.bottom)))
 
     def _draw_mlp(self, body: pygame.Rect, info: dict) -> None:
         """PPO's policy network: input, hidden layers, output, drawn as columns of dots."""

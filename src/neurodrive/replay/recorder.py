@@ -56,7 +56,13 @@ def network_info(controller: Controller) -> tuple[dict[str, Any] | None, bytes |
             )
             png = out.read_bytes()
         hidden, conns = controller.size()  # type: ignore[attr-defined]
-        return {"type": "neat", "hidden": hidden, "connections": conns}, png
+        from neurodrive.viz.network import network_layout
+
+        graph = network_layout(controller.genome, controller.config)  # type: ignore[attr-defined]
+        graph["order"] = graph["inputs"] + graph["hidden"] + graph["outputs"]
+        graph["input_names"] = meta.get("observation", {}).get("names")
+        info = {"type": "neat", "hidden": hidden, "connections": conns, "graph": graph}
+        return info, png
     if controller.kind == "ppo":
         policy = controller.model.policy  # type: ignore[attr-defined]
         layers = [m for m in policy.mlp_extractor.policy_net if hasattr(m, "out_features")]
@@ -73,6 +79,14 @@ def network_info(controller: Controller) -> tuple[dict[str, Any] | None, bytes |
         }
         return info, None
     return None, None
+
+
+def node_snapshot(controller: Controller, order: list[int] | None) -> list[float] | None:
+    """The NEAT network's node values after its last ``act`` (None for other drivers)."""
+    net = getattr(controller, "net", None)
+    if order is None or net is None:
+        return None
+    return [float(net.values.get(k, 0.0)) for k in order]
 
 
 def _frame(env: DrivingEnv) -> tuple[list[float], np.ndarray, np.ndarray, np.ndarray]:
@@ -111,16 +125,21 @@ def record_episode(
         dists.append(d)
         dirs.append(u)
 
+    network, png = network_info(controller) if with_network else (None, None)
+    order = (network or {}).get("graph", {}).get("order")
+    nodes: list[list[float]] = []
     keep()
     while True:
         action = np.asarray(controller.act(obs), dtype=np.float64)
         actions.append(action)
+        snap = node_snapshot(controller, order)
+        if snap is not None:
+            nodes.append(snap)
         obs, _, terminated, truncated, info = env.step(action)
         keep()
         if terminated or truncated:
             break
     table = np.asarray(rows, dtype=np.float64)
-    network, png = network_info(controller) if with_network else (None, None)
     model_meta = getattr(controller, "meta", None) or {}
     meta = {
         "format": FORMAT,
@@ -159,6 +178,7 @@ def record_episode(
         ray_dist=np.asarray(dists, dtype=np.float64),
         ray_dirs=np.asarray(dirs, dtype=np.float64),
         network_png=png,
+        node_values=np.asarray(nodes, dtype=np.float32) if nodes else None,
     )
 
 

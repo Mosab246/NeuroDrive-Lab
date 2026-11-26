@@ -20,7 +20,13 @@ import numpy as np
 from neurodrive.experiments.metadata import git_commit
 from neurodrive.replay.format import FORMAT, Replay, ReplayError
 from neurodrive.replay.lab import Entry
-from neurodrive.replay.recorder import describe_kind, env_for, is_learned, network_info
+from neurodrive.replay.recorder import (
+    describe_kind,
+    env_for,
+    is_learned,
+    network_info,
+    node_snapshot,
+)
 from neurodrive.sim.race import RaceWorld
 
 OUTCOME_TO_ENDING = {"finished": "lap_complete"}
@@ -50,6 +56,9 @@ def record_race(
     rows: list[list[list[float]]] = [[] for _ in range(n)]
     rays: list[list[tuple[np.ndarray, np.ndarray, np.ndarray]]] = [[] for _ in range(n)]
     actions: list[list[np.ndarray]] = [[] for _ in range(n)]
+    networks = [network_info(c) if with_network else (None, None) for c in controllers]
+    orders = [(net or {}).get("graph", {}).get("order") for net, _ in networks]
+    nodes: list[list[list[float]]] = [[] for _ in range(n)]
 
     def observe(i: int) -> np.ndarray:
         envs[i].obstacles = world.obstacles_for(i)  # the autopilot reads these
@@ -75,6 +84,9 @@ def record_race(
             if world.status[i].racing:
                 a = np.asarray(controllers[i].act(obs[i]), dtype=np.float64)
                 actions[i].append(a)
+                snap = node_snapshot(controllers[i], orders[i])
+                if snap is not None:
+                    nodes[i].append(snap)
                 step_actions.append(a)
             else:
                 step_actions.append(None)
@@ -92,7 +104,7 @@ def record_race(
     ):
         st = world.status[i]
         table = np.asarray(rows[i], dtype=np.float64)
-        network, png = network_info(controller) if with_network else (None, None)
+        network, png = networks[i]
         meta: dict[str, Any] = {
             "format": FORMAT,
             "label": label,
@@ -136,6 +148,7 @@ def record_race(
                 ray_dist=np.asarray([r[1] for r in rays[i]]),
                 ray_dirs=np.asarray([r[2] for r in rays[i]]),
                 network_png=png,
+                node_values=np.asarray(nodes[i], dtype=np.float32) if nodes[i] else None,
             )
         )
     for i in standings:

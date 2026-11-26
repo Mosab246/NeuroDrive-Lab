@@ -95,6 +95,12 @@ def test_neat_network_and_replay(tmp_path):
     assert rep.meta["learned"] and describe_kind("neat") == "learned (NEAT)"
     back = load_replay(rep.save(tmp_path / "n.npz"))
     assert back.network_png == png
+    graph = back.meta["network"]["graph"]
+    assert back.node_values is not None
+    assert back.node_values.shape == (back.steps, len(graph["order"]))
+    # The recorded output nodes are exactly the actions the car took.
+    outs = [graph["order"].index(k) for k in graph["outputs"]]
+    np.testing.assert_allclose(np.clip(back.node_values[:, outs], -1, 1), back.actions, atol=1e-6)
     verify_replay(back)
 
 

@@ -59,6 +59,9 @@ class Replay:
     ray_dist: np.ndarray
     ray_dirs: np.ndarray
     network_png: bytes | None = field(default=None, repr=False)
+    #: NEAT only: every network node's value after each action, shape (steps, nodes), in
+    #: the order of ``meta["network"]["graph"]["order"]``; drives the live network view.
+    node_values: np.ndarray | None = field(default=None, repr=False)
 
     @property
     def steps(self) -> int:
@@ -92,6 +95,8 @@ class Replay:
         arrays = {name: getattr(self, name) for name in ARRAYS}
         if self.network_png is not None:
             arrays["network_png"] = np.frombuffer(self.network_png, dtype=np.uint8)
+        if self.node_values is not None:
+            arrays["node_values"] = self.node_values
         buf = io.BytesIO()
         np.savez_compressed(buf, meta=np.array(json.dumps(self.meta)), **arrays)
         path.write_bytes(buf.getvalue())
@@ -109,11 +114,12 @@ def load_replay(path: str | Path) -> Replay:
                 raise ReplayError(f"{path.name}: not a {FORMAT} file")
             arrays = {name: data[name] for name in ARRAYS}
             png = bytes(data["network_png"]) if "network_png" in data.files else None
+            nodes = data["node_values"] if "node_values" in data.files else None
     except (OSError, KeyError, ValueError) as exc:
         if isinstance(exc, ReplayError):
             raise
         raise ReplayError(f"{path.name}: unreadable replay ({exc})") from exc
-    replay = Replay(meta=meta, network_png=png, **arrays)
+    replay = Replay(meta=meta, network_png=png, node_values=nodes, **arrays)
     n = replay.steps
     for name in ARRAYS:
         expected = n if name == "actions" else n + 1

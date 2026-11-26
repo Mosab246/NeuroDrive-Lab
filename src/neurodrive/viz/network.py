@@ -37,13 +37,10 @@ def _depths(genome: Any, config: neat.Config, used: set[int]) -> dict[int, int]:
     return depth
 
 
-def draw_network(
-    genome: Any,
-    config: neat.Config,
-    path: Path,
-    input_names: list[str] | tuple[str, ...] | None = None,
-    title: str = "",
-) -> Path:
+def network_layout(genome: Any, config: neat.Config) -> dict[str, Any]:
+    """Node positions (x, y in [0, 1]) and enabled connections of the part of the network
+    that can affect the outputs. Inputs on the left, outputs on the right, hidden neurons in
+    columns by their depth. Shared by the PNG drawing and the replay viewer's live view."""
     gc = config.genome_config
     used = set(
         neat.graphs.required_for_output(
@@ -67,6 +64,32 @@ def draw_network(
         x = col / max_depth if max_depth > 1 else 0.5
         for j, k in enumerate(keys):
             pos[k] = (min(max(x, 0.2), 0.8), 1 - (j + 1) / (len(keys) + 1))
+    edges = [
+        (int(a), int(b), float(c.weight))
+        for (a, b), c in genome.connections.items()
+        if c.enabled and b in used and a in pos and b in pos
+    ]
+    return {
+        "inputs": [int(k) for k in gc.input_keys],
+        "outputs": [int(k) for k in gc.output_keys],
+        "hidden": [int(k) for k in hidden],
+        "pos": {int(k): [float(v[0]), float(v[1])] for k, v in pos.items()},
+        "edges": edges,
+    }
+
+
+def draw_network(
+    genome: Any,
+    config: neat.Config,
+    path: Path,
+    input_names: list[str] | tuple[str, ...] | None = None,
+    title: str = "",
+) -> Path:
+    gc = config.genome_config
+    layout = network_layout(genome, config)
+    pos = {k: tuple(v) for k, v in layout["pos"].items()}
+    hidden = layout["hidden"]
+    used = set(hidden) | set(gc.output_keys)
 
     fig, ax = plt.subplots(figsize=(9, 6), dpi=110)
     weights = [abs(c.weight) for c in genome.connections.values() if c.enabled] or [1.0]
