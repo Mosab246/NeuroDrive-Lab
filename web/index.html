@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>NeuroDrive Lab</title>
+<style>
+  :root { --panel: rgba(14, 16, 20, 0.88); --text: #eceef2; --dim: #9aa1ad; --accent: #2a78d6; --line: #2a2f38; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #24402c; color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  .panel { position: absolute; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+  #menu { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, calc(100vw - 32px));
+    padding: 22px 24px; max-height: calc(100vh - 32px); overflow: auto; }
+  #menu h1 { margin: 0 0 2px; font-size: 26px; }
+  #menu p { margin: 0 0 16px; color: var(--dim); }
+  label.row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 10px 0; }
+  select, button { font: inherit; color: var(--text); background: #1d2129; border: 1px solid var(--line);
+    border-radius: 8px; padding: 7px 10px; }
+  button.primary { background: var(--accent); border-color: var(--accent); font-weight: 600; cursor: pointer; padding: 10px 16px; }
+  button { cursor: pointer; }
+  .drivers { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0 14px; }
+  .drivers label { display: flex; gap: 8px; align-items: center; background: #1d2129; border: 1px solid var(--line);
+    border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+  .swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  .keys { color: var(--dim); font-size: 13px; margin-top: 14px; }
+  kbd { background: #1d2129; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font-size: 12px; }
+  #hud { left: 12px; top: 12px; padding: 10px 14px; min-width: 190px; display: none; }
+  #hud .big { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  #hud .dim { color: var(--dim); font-size: 13px; }
+  #standings { right: 12px; top: 12px; padding: 10px 12px; min-width: 230px; display: none; font-size: 14px; }
+  #standings div { display: flex; gap: 8px; align-items: center; font-variant-numeric: tabular-nums; }
+  #standings .gap { margin-left: auto; color: var(--dim); }
+  #banner { left: 50%; top: 18%; transform: translateX(-50%); padding: 10px 22px; font-size: 26px; font-weight: 700; display: none; text-align: center; }
+  #results { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(520px, calc(100vw - 32px)); padding: 20px 22px; display: none; }
+  #results table { width: 100%; border-collapse: collapse; margin: 10px 0; font-variant-numeric: tabular-nums; }
+  #results td, #results th { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: left; }
+  #results th { color: var(--dim); font-weight: 600; }
+  #touch { position: absolute; bottom: 14px; left: 0; right: 0; display: none; justify-content: space-between; padding: 0 14px; pointer-events: none; }
+  #touch .pad { display: flex; gap: 10px; pointer-events: auto; }
+  #touch button { width: 74px; height: 74px; border-radius: 50%; font-size: 24px; background: rgba(20, 22, 28, .75); }
+  .note { position: absolute; left: 12px; bottom: 10px; color: var(--dim); font-size: 12px; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<div id="menu" class="panel">
+  <h1>NeuroDrive Lab</h1>
+  <p>Race against drivers that taught themselves to drive: PPO (reinforcement learning) and NEAT
+  (evolved networks). They only see 9 distance sensors, their speed and their steering, like you see the road.</p>
+  <label class="row">Track <select id="track"></select></label>
+  <label class="row">Laps <select id="laps"><option>1</option><option selected>2</option><option>3</option></select></label>
+  <div>Opponents</div>
+  <div class="drivers" id="drivers"></div>
+  <div class="actions">
+    <button class="primary" id="race">Race</button>
+    <button id="watch">Watch the AI race</button>
+  </div>
+  <div class="keys">Drive with <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>.
+    <kbd>R</kbd> restart, <kbd>Esc</kbd> menu. Leaving the track ends your race.</div>
+</div>
+
+<div id="hud" class="panel"></div>
+<div id="standings" class="panel"></div>
+<div id="banner" class="panel"></div>
+<div id="results" class="panel"></div>
+<div id="touch"><div class="pad"><button data-k="left">◀</button><button data-k="right">▶</button></div>
+  <div class="pad"><button data-k="down">■</button><button data-k="up">▲</button></div></div>
+<div class="note">Ghost race: cars pass through each other. Physics and AI run in your browser, ported 1:1 from the Python simulator.</div>
+
+<script type="module" src="game.js"></script>
+</body>
+</html>

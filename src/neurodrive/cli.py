@@ -467,6 +467,30 @@ def _cmd_dashboard(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_export_web(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from neurodrive.web_export import export_web
+
+    models: list[tuple[str, Path]] = []
+    for spec in args.model or []:
+        label, _, path = spec.partition("=")
+        models.append((label, Path(path)))
+    if args.benchmark:
+        manifest = _json.loads((Path(args.benchmark) / "manifest.json").read_text(encoding="utf-8"))
+        for r in sorted(
+            manifest["runs"].values(), key=lambda r: (r["algorithm"] != "ppo", r["seed"])
+        ):
+            run = Path(r["run_dir"])
+            ext = ".zip" if r["algorithm"] == "ppo" else ".pkl"
+            model = run / f"best_model_v2{ext}"
+            model = model if model.is_file() else run / f"best_model{ext}"
+            models.append((f"{r['algorithm'].upper()} #{r['seed'] + 1}", model))
+    out = export_web(models, Path(args.out))
+    print(f"wrote {out} ({out.stat().st_size / 1e6:.1f} MB, {len(models)} drivers)")
+    return 0
+
+
 def _cmd_list_tracks(_: argparse.Namespace) -> int:
     for tid in builtin_track_ids():
         print(tid)
@@ -622,6 +646,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     viewer_args(tl)
     tl.set_defaults(func=_cmd_timeline)
+
+    ex = sub.add_parser("export-web", help="export tracks and drivers for the browser game")
+    ex.add_argument("--benchmark", default=None, help="add every best model of a benchmark")
+    ex.add_argument("--model", action="append", help="LABEL=path to a model (repeat)")
+    ex.add_argument("--out", default="web/data.js")
+    ex.set_defaults(func=_cmd_export_web)
 
     db = sub.add_parser("dashboard", help="interactive HTML results dashboard")
     db.add_argument("--results", default="results", help="results folder")

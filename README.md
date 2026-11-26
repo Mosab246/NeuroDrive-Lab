@@ -168,6 +168,14 @@ All numbers come from logged runs with the exact commands, dates and hardware in
   collide with momentum exchange; championship mode with F1 scoring
 - Optional traffic during training, so agents learn to race rather than only to lap
 
+## Play it in the browser
+
+[`web/`](web/) is a browser version: race against the trained PPO and NEAT drivers, or
+watch them race, with nothing to install. The physics, sensors and both neural networks
+are ported to JavaScript and tested against the Python simulator step for step (same
+driver, same track: positions agree to within a micrometre). Serve the folder with any
+static server (`uv run python -m http.server 8765 --directory web`) and open it.
+
 ## Architecture
 
 ```mermaid
