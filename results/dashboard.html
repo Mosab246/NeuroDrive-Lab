@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NeuroDrive Lab results</title>
+<style>
+:root {
+  color-scheme: light;
+  --surface-0: #f4f4f2; --surface-1: #fcfcfb; --border: #e2e1dc;
+  --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #7a7973;
+  --grid: #e8e7e3; --axis: #b9b8b1;
+  --ppo: #2a78d6; --neat: #eb6834; --neutral: #8f8e88;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --surface-0: #121211; --surface-1: #1a1a19; --border: #2e2e2c;
+    --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #8f8e88;
+    --grid: #2a2a28; --axis: #4a4a47;
+    --ppo: #3987e5; --neat: #d95926; --neutral: #7a7973;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-0: #121211; --surface-1: #1a1a19; --border: #2e2e2c;
+  --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #8f8e88;
+  --grid: #2a2a28; --axis: #4a4a47;
+  --ppo: #3987e5; --neat: #d95926; --neutral: #7a7973;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--surface-0); color: var(--text-primary);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 1120px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.01em; }
+h2 { font-size: 19px; margin: 40px 0 6px; }
+p.lede { color: var(--text-secondary); margin: 0 0 24px; max-width: 760px; }
+p.note { color: var(--text-muted); font-size: 13px; margin: 6px 0 0; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.tile .label { color: var(--text-secondary); font-size: 13px; }
+.tile .value { font-size: 30px; font-weight: 650; letter-spacing: -0.02em; margin: 2px 0; }
+.tile .sub { color: var(--text-muted); font-size: 13px; }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-top: 12px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 4px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg button { background: transparent; border: 0; color: var(--text-secondary); padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--text-primary); color: var(--surface-1); }
+.seg button:disabled { opacity: .4; cursor: default; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--text-secondary); margin: 4px 0 8px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+svg text { fill: var(--text-secondary); font-size: 12px; }
+svg .value { fill: var(--text-primary); font-weight: 600; }
+.tooltip { position: fixed; pointer-events: none; background: var(--text-primary); color: var(--surface-1);
+  border-radius: 8px; padding: 8px 10px; font-size: 13px; line-height: 1.4; max-width: 280px;
+  opacity: 0; transition: opacity .08s; z-index: 10; }
+.toggle-table { background: none; border: 0; color: var(--text-secondary); font: inherit; font-size: 13px;
+  padding: 0; margin-top: 8px; cursor: pointer; text-decoration: underline; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; margin-top: 8px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+th { color: var(--text-secondary); font-weight: 600; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.theme { position: absolute; top: 16px; right: 16px; }
+@media (max-width: 640px) { .tile .value { font-size: 24px; } }
+</style>
+</head>
+<body>
+<div class="theme seg" role="group" aria-label="Theme">
+  <button data-theme-choice="light">Light</button><button data-theme-choice="dark">Dark</button>
+</div>
+<main>
+  <h1>NeuroDrive Lab results</h1>
+  <p class="lede">PPO (reinforcement learning) and NEAT (neuroevolution) learning to drive, compared on
+  equal training budgets, several seeds and 26 test tracks (22 never seen in training). Every number
+  comes from the committed result files and can be regenerated with <code>neurodrive dashboard</code>.</p>
+  <div class="tiles" id="tiles"></div>
+
+  <h2>Laps completed per training run</h2>
+  <p class="note">Share of 520 test scenarios (26 tracks x 20 random starts) each run finished.</p>
+  <div class="card">
+    <div class="controls">
+      <div class="seg" id="bench-seg" role="group" aria-label="Benchmark"></div>
+      <div class="seg" id="pick-seg" role="group" aria-label="Checkpoint choice">
+        <button data-pick="training">Picked during training</button><button data-pick="reselected">Re-selected (7 tracks)</button>
+      </div>
+    </div>
+    <div class="legend"><span><i style="background:var(--ppo)"></i>PPO</span><span><i style="background:var(--neat)"></i>NEAT</span><span><i style="background:var(--neutral)"></i>Scripted reference</span></div>
+    <div id="runs-chart"></div>
+    <button class="toggle-table" data-for="runs">Show table</button><div id="runs-table" hidden></div>
+  </div>
+
+  <h2>Lap time on every test track</h2>
+  <p class="note">Mean over the seeds' completed laps; lower is faster. Training-time checkpoint choice.</p>
+  <div class="card">
+    <div class="controls"><div class="seg" id="bench-seg-2" role="group" aria-label="Benchmark"></div></div>
+    <div class="legend"><span><i style="background:var(--ppo)"></i>PPO</span><span><i style="background:var(--neat)"></i>NEAT</span></div>
+    <div id="tracks-chart"></div>
+    <button class="toggle-table" data-for="tracks">Show table</button><div id="tracks-table" hidden></div>
+  </div>
+
+  <h2>Racing with traffic</h2>
+  <p class="note">22 test tracks x 20 scenarios with 3 opponent cars on track (one seed per model).</p>
+  <div class="card">
+    <div class="legend"><span><i style="background:var(--ppo)"></i>PPO</span><span><i style="background:var(--neat)"></i>NEAT</span></div>
+    <div id="traffic-chart"></div>
+    <button class="toggle-table" data-for="traffic">Show table</button><div id="traffic-table" hidden></div>
+  </div>
+
+  <h2>Grand Prix</h2>
+  <p class="note" id="gp-note"></p>
+  <div class="card">
+    <div class="legend"><span><i style="background:var(--ppo)"></i>PPO</span><span><i style="background:var(--neat)"></i>NEAT</span><span><i style="background:var(--neutral)"></i>Scripted</span></div>
+    <div id="gp-chart"></div>
+    <button class="toggle-table" data-for="gp">Show table</button><div id="gp-table" hidden></div>
+  </div>
+</main>
+<div class="tooltip" id="tip" role="status"></div>
+<script>
+const DATA = {"benchmarks": [{"name": "ppo_vs_neat_1m", "label": "1M steps", "budget": 1000000, "runs": [{"algorithm": "neat", "seed": 0, "laps": 1.0, "lap_time": 22.72807692307692, "collisions": 0.0}, {"algorithm": "neat", "seed": 1, "laps": 0.9653846153846154, "lap_time": 24.392031872509957, "collisions": 0.03461538461538462}, {"algorithm": "neat", "seed": 2, "laps": 0.9884615384615385, "lap_time": 23.50184824902724, "collisions": 0.011538461538461539}, {"algorithm": "ppo", "seed": 0, "laps": 0.9653846153846154, "lap_time": 22.47835325365206, "collisions": 0.03461538461538462}, {"algorithm": "ppo", "seed": 1, "laps": 1.0, "lap_time": 22.446666666666665, "collisions": 0.0}, {"algorithm": "ppo", "seed": 2, "laps": 0.8134615384615385, "lap_time": 21.98420015760441, "collisions": 0.18653846153846154}], "reselected": {"neat/0": {"laps": 1.0, "lap_time": 22.72807692307692, "collisions": 0.0}, "neat/1": {"laps": 0.9653846153846154, "lap_time": 24.392031872509957, "collisions": 0.03461538461538462}, "neat/2": {"laps": 1.0, "lap_time": 25.52445512820513, "collisions": 0.0}, "ppo/0": {"laps": 1.0, "lap_time": 22.49576923076923, "collisions": 0.0}, "ppo/1": {"laps": 1.0, "lap_time": 22.446666666666665, "collisions": 0.0}, "ppo/2": {"laps": 0.9288461538461539, "lap_time": 22.256107660455484, "collisions": 0.07115384615384615}}, "tracks": [{"track": "beginner_oval", "split": "train", "ppo": 20.391388888888887, "neat": 20.973611111111108}, {"track": "curved_circuit", "split": "train", "ppo": 22.116666666666664, "neat": 24.726111111111113}, {"track": "technical_circuit", "split": "train", "ppo": 23.114166666666666, "neat": 23.749444444444446}, {"track": "validation_circuit", "split": "validation", "ppo": 21.8325, "neat": 22.555555555555554}, {"track": "unseen_a", "split": "test", "ppo": 22.985833333333336, "neat": 24.3875}, {"track": "unseen_b", "split": "test", "ppo": 22.188055555555554, "neat": 23.134444444444444}, {"track": "proc_0", "split": "test", "ppo": 24.28222222222222, "neat": 25.310555555555553}, {"track": "proc_1", "split": "test", "ppo": 23.733611111111106, "neat": 24.747222222222224}, {"track": "proc_2", "split": "test", "ppo": 21.936666666666667, "neat": 23.1225}, {"track": "proc_3", "split": "test", "ppo": 24.25333333333333, "neat": 24.614166666666666}, {"track": "proc_4", "split": "test", "ppo": 20.4025, "neat": 21.476944444444445}, {"track": "proc_5", "split": "test", "ppo": 22.1525, "neat": 23.13472222222222}, {"track": "proc_6", "split": "test", "ppo": 22.936111111111114, "neat": 24.17083333333333}, {"track": "proc_7", "split": "test", "ppo": 25.469583333333333, "neat": 25.94773391812865}, {"track": "proc_8", "split": "test", "ppo": 22.343611111111112, "neat": 23.478333333333335}, {"track": "proc_9", "split": "test", "ppo": 24.718333333333334, "neat": 25.44111111111111}, {"track": "proc_10", "split": "test", "ppo": 23.70888888888889, "neat": 25.87805555555555}, {"track": "proc_11", "split": "test", "ppo": 21.557777777777776, "neat": 22.920185185185186}, {"track": "proc_12", "split": "test", "ppo": 20.90694444444444, "neat": 21.76631578947368}, {"track": "proc_13", "split": "test", "ppo": 23.219444444444445, "neat": 24.105277777777776}, {"track": "proc_14", "split": "test", "ppo": 22.86638888888889, "neat": 24.75852339181286}, {"track": "proc_15", "split": "test", "ppo": 20.49125, "neat": 21.568611111111114}, {"track": "proc_16", "split": "test", "ppo": 19.497777777777777, "neat": 20.913611111111113}, {"track": "proc_17", "split": "test", "ppo": 20.705555555555556, "neat": 21.46027777777778}, {"track": "proc_18", "split": "test", "ppo": 25.77444444444444, "neat": 27.02027777777778}, {"track": "proc_19", "split": "test", "ppo": 19.35944444444444, "neat": 20.835555555555555}], "baselines": {"heuristic": {"laps": 1.0, "lap_time": 29.556410256410253}, "autopilot": {"laps": 1.0, "lap_time": 28.020064102564103}, "smoothed_random": {"laps": 0.0, "lap_time": null}}}, {"name": "ppo_vs_neat_5m", "label": "5M steps", "budget": 5000000, "runs": [{"algorithm": "neat", "seed": 0, "laps": 1.0, "lap_time": 21.671474358974358, "collisions": 0.0}, {"algorithm": "neat", "seed": 1, "laps": 1.0, "lap_time": 21.65615384615385, "collisions": 0.0}, {"algorithm": "neat", "seed": 2, "laps": 1.0, "lap_time": 21.44205128205128, "collisions": 0.0}, {"algorithm": "ppo", "seed": 0, "laps": 1.0, "lap_time": 22.49576923076923, "collisions": 0.0}, {"algorithm": "ppo", "seed": 1, "laps": 0.7519230769230769, "lap_time": 22.404134697357204, "collisions": 0.24807692307692308}, {"algorithm": "ppo", "seed": 2, "laps": 0.8826923076923077, "lap_time": 22.174328249818444, "collisions": 0.11730769230769231}], "reselected": {"neat/0": {"laps": 1.0, "lap_time": 21.59227564102564, "collisions": 0.0}, "neat/1": {"laps": 1.0, "lap_time": 21.65615384615385, "collisions": 0.0}, "neat/2": {"laps": 1.0, "lap_time": 21.44205128205128, "collisions": 0.0}, "ppo/0": {"laps": 1.0, "lap_time": 22.65730769230769, "collisions": 0.0}, "ppo/1": {"laps": 0.9923076923076923, "lap_time": 22.30426356589147, "collisions": 0.007692307692307693}, "ppo/2": {"laps": 0.9134615384615384, "lap_time": 22.324807017543858, "collisions": 0.08653846153846154}}, "tracks": [{"track": "beginner_oval", "split": "train", "ppo": 20.450555555555553, "neat": 19.945833333333336}, {"track": "curved_circuit", "split": "train", "ppo": 22.115, "neat": 21.029722222222222}, {"track": "technical_circuit", "split": "train", "ppo": 23.11875, "neat": 22.061944444444446}, {"track": "validation_circuit", "split": "validation", "ppo": 21.67361111111111, "neat": 20.97972222222222}, {"track": "unseen_a", "split": "test", "ppo": 22.839722222222225, "neat": 21.792777777777776}, {"track": "unseen_b", "split": "test", "ppo": 22.15263888888889, "neat": 21.462500000000002}, {"track": "proc_0", "split": "test", "ppo": 24.14972222222222, "neat": 22.84}, {"track": "proc_1", "split": "test", "ppo": 23.628333333333334, "neat": 22.546666666666667}, {"track": "proc_2", "split": "test", "ppo": 21.865555555555556, "neat": 21.334999999999997}, {"track": "proc_3", "split": "test", "ppo": 24.03361111111111, "neat": 22.990555555555556}, {"track": "proc_4", "split": "test", "ppo": 20.382499999999997, "neat": 20.07111111111111}, {"track": "proc_5", "split": "test", "ppo": 22.06361111111111, "neat": 21.075833333333332}, {"track": "proc_6", "split": "test", "ppo": 22.857407407407408, "neat": 22.231388888888887}, {"track": "proc_7", "split": "test", "ppo": 25.196388888888887, "neat": 24.14027777777778}, {"track": "proc_8", "split": "test", "ppo": 22.147222222222226, "neat": 21.65222222222222}, {"track": "proc_9", "split": "test", "ppo": 24.45861111111111, "neat": 23.366666666666664}, {"track": "proc_10", "split": "test", "ppo": 23.58361111111111, "neat": 22.810277777777774}, {"track": "proc_11", "split": "test", "ppo": 21.585, "neat": 21.161111111111108}, {"track": "proc_12", "split": "test", "ppo": 20.773611111111112, "neat": 20.190833333333334}, {"track": "proc_13", "split": "test", "ppo": 22.84472222222222, "neat": 21.9425}, {"track": "proc_14", "split": "test", "ppo": 22.704444444444444, "neat": 21.924999999999997}, {"track": "proc_15", "split": "test", "ppo": 20.224999999999998, "neat": 19.79861111111111}, {"track": "proc_16", "split": "test", "ppo": 19.469629629629626, "neat": 19.893055555555556}, {"track": "proc_17", "split": "test", "ppo": 20.724166666666665, "neat": 20.403333333333332}, {"track": "proc_18", "split": "test", "ppo": 25.93361111111111, "neat": 25.099444444444444}, {"track": "proc_19", "split": "test", "ppo": 19.247777777777777, "neat": 18.590833333333332}], "baselines": {"heuristic": {"laps": 1.0, "lap_time": 29.556410256410253}, "autopilot": {"laps": 1.0, "lap_time": 28.020064102564103}, "smoothed_random": {"laps": 0.0, "lap_time": null}}}, {"name": "ppo_vs_neat_dynamic_3m", "label": "Hard physics, 3M steps", "budget": 3000000, "runs": [{"algorithm": "neat", "seed": 0, "laps": 0.9826923076923076, "lap_time": 33.158675799086765, "collisions": 0.01730769230769231}, {"algorithm": "neat", "seed": 1, "laps": 0.7326923076923076, "lap_time": 35.616929133858264, "collisions": 0.0019230769230769232}, {"algorithm": "neat", "seed": 2, "laps": 0.926923076923077, "lap_time": 33.075518672199166, "collisions": 0.03653846153846154}, {"algorithm": "ppo", "seed": 0, "laps": 0.7980769230769231, "lap_time": 27.86658634538153, "collisions": 0.20192307692307693}, {"algorithm": "ppo", "seed": 1, "laps": 0.8038461538461539, "lap_time": 27.69605263157895, "collisions": 0.19615384615384615}, {"algorithm": "ppo", "seed": 2, "laps": 0.7153846153846154, "lap_time": 27.697670250896056, "collisions": 0.2846153846153846}], "reselected": null, "tracks": [{"track": "beginner_oval", "split": "train", "ppo": 25.466388888888886, "neat": 29.567222222222224}, {"track": "curved_circuit", "split": "train", "ppo": 28.483055555555552, "neat": 34.60390522875817}, {"track": "technical_circuit", "split": "train", "ppo": 28.842314814814813, "neat": 34.230555555555554}, {"track": "validation_circuit", "split": "validation", "ppo": 27.493333333333336, "neat": 33.129342105263156}, {"track": "unseen_a", "split": "test", "ppo": 28.750740740740742, "neat": 34.892993827160495}, {"track": "unseen_b", "split": "test", "ppo": 27.823611111111106, "neat": 32.978611111111114}, {"track": "proc_0", "split": "test", "ppo": 30.4675, "neat": 36.970277777777774}, {"track": "proc_1", "split": "test", "ppo": 29.894444444444446, "neat": 36.25138888888889}, {"track": "proc_2", "split": "test", "ppo": 27.704166666666666, "neat": 32.730000000000004}, {"track": "proc_4", "split": "test", "ppo": 25.84472222222222, "neat": 30.516666666666666}, {"track": "proc_5", "split": "test", "ppo": 28.170277777777773, "neat": 34.11888888888888}, {"track": "proc_6", "split": "test", "ppo": 29.0, "neat": 34.64833333333333}, {"track": "proc_7", "split": "test", "ppo": 31.708333333333336, "neat": 39.46984649122806}, {"track": "proc_8", "split": "test", "ppo": 28.62722222222222, "neat": 34.723611111111104}, {"track": "proc_10", "split": "test", "ppo": 30.174522792022795, "neat": 37.169827810266405}, {"track": "proc_11", "split": "test", "ppo": 27.338257575757577, "neat": 32.4275}, {"track": "proc_12", "split": "test", "ppo": 26.243888888888886, "neat": 30.795555555555552}, {"track": "proc_13", "split": "test", "ppo": 29.373055555555556, "neat": 35.62}, {"track": "proc_14", "split": "test", "ppo": 29.092929292929295, "neat": 35.53470760233918}, {"track": "proc_15", "split": "test", "ppo": 25.590616096866096, "neat": 31.260555555555555}, {"track": "proc_16", "split": "test", "ppo": 25.02361111111111, "neat": 29.546666666666667}, {"track": "proc_17", "split": "test", "ppo": 26.266111111111115, "neat": 31.359722222222228}, {"track": "proc_18", "split": "test", "ppo": 32.35300925925926, "neat": 40.085087719298244}, {"track": "proc_19", "split": "test", "ppo": 24.469570707070705, "neat": 29.71148148148148}, {"track": "proc_3", "split": "test", "neat": 38.26359649122807}, {"track": "proc_9", "split": "test", "neat": 37.73291666666667}], "baselines": {"heuristic": {"laps": 0.3, "lap_time": 32.040277777777774}, "autopilot": {"laps": 1.0, "lap_time": 38.03375}, "smoothed_random": {"laps": 0.0, "lap_time": null}}}], "traffic": [{"driver": "PPO trained alone", "alone": 100.0, "traffic": 99.5, "hits": 2.59, "lap_time_traffic": 25.77}, {"driver": "PPO trained with traffic", "alone": 98.0, "traffic": 93.6, "hits": 1.48, "lap_time_traffic": 23.21}, {"driver": "NEAT trained alone", "alone": 100.0, "traffic": 42.5, "hits": 0.24, "lap_time_traffic": 33.15}, {"driver": "NEAT trained with traffic", "alone": 100.0, "traffic": 52.7, "hits": 0.08, "lap_time_traffic": 24.1}], "grand_prix": {"races": 12, "laps": 2, "standings": [{"driver": "NEAT traffic", "kind": "learned (NEAT)", "points": 198, "wins": 3, "finished": 10, "races": 12, "contacts": 1}, {"driver": "PPO solo", "kind": "learned (PPO)", "points": 196, "wins": 4, "finished": 10, "races": 12, "contacts": 35}, {"driver": "PPO traffic", "kind": "learned (PPO)", "points": 174, "wins": 3, "finished": 9, "races": 12, "contacts": 30}, {"driver": "heuristic", "kind": "scripted (sensors only)", "points": 140, "wins": 0, "finished": 12, "races": 12, "contacts": 13}, {"driver": "autopilot", "kind": "scripted (privileged)", "points": 132, "wins": 0, "finished": 12, "races": 12, "contacts": 28}, {"driver": "NEAT solo", "kind": "learned (NEAT)", "points": 104, "wins": 2, "finished": 6, "races": 12, "contacts": 3}]}};
+const NS = "http://www.w3.org/2000/svg";
+const tip = document.getElementById("tip");
+const pct = x => x == null ? "–" : (100 * x).toFixed(1) + "%";
+const sec = x => x == null ? "–" : x.toFixed(2) + " s";
+const algoColor = a => a.toLowerCase().includes("ppo") ? "var(--ppo)" : a.toLowerCase().includes("neat") ? "var(--neat)" : "var(--neutral)";
+
+function el(name, attrs, parent) {
+  const e = document.createElementNS(NS, name);
+  for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function showTip(evt, html) {
+  tip.innerHTML = html; tip.style.opacity = 1;
+  const pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = evt.clientX + pad, y = evt.clientY + pad;
+  if (x + w > innerWidth - 8) x = evt.clientX - w - pad;
+  if (y + h > innerHeight - 8) y = evt.clientY - h - pad;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+}
+function hideTip() { tip.style.opacity = 0; }
+addEventListener("scroll", hideTip, {passive: true});
+function hover(node, html) {
+  node.addEventListener("mousemove", e => showTip(e, html));
+  node.addEventListener("mouseleave", hideTip);
+  node.setAttribute("tabindex", "0");
+  node.addEventListener("focus", e => { const r = node.getBoundingClientRect(); showTip({clientX: r.right, clientY: r.top}, html); });
+  node.addEventListener("blur", hideTip);
+}
+function table(container, head, rows, numeric) {
+  const t = document.createElement("table");
+  t.innerHTML = "<thead><tr>" + head.map((h, i) => `<th class="${numeric[i] ? "num" : ""}">${h}</th>`).join("") + "</tr></thead>"
+    + "<tbody>" + rows.map(r => "<tr>" + r.map((c, i) => `<td class="${numeric[i] ? "num" : ""}">${c}</td>`).join("") + "</tr>").join("") + "</tbody>";
+  container.replaceChildren(t);
+}
+// A rounded-top bar anchored to the baseline (4px radius on the data end only).
+function bar(parent, x, y, w, h, fill) {
+  const r = Math.min(4, w / 2, h);
+  const d = `M${x},${y + h} V${y + r} Q${x},${y} ${x + r},${y} H${x + w - r} Q${x + w},${y} ${x + w},${y + r} V${y + h} Z`;
+  return el("path", {d, fill}, parent);
+}
+function hbar(parent, x, y, w, h, fill) {
+  const r = Math.min(4, h / 2, w);
+  const d = `M${x},${y} H${x + w - r} Q${x + w},${y} ${x + w},${y + r} V${y + h - r} Q${x + w},${y + h} ${x + w - r},${y + h} H${x} Z`;
+  return el("path", {d, fill}, parent);
+}
+
+// ---------------------------------------------------------------- tiles
+function tiles() {
+  const box = document.getElementById("tiles");
+  const b5 = DATA.benchmarks.find(b => b.name === "ppo_vs_neat_5m");
+  const bh = DATA.benchmarks.find(b => b.name === "ppo_vs_neat_dynamic_3m");
+  const mean = (runs, a, k) => { const v = runs.filter(r => r.algorithm === a).map(r => r[k]).filter(x => x != null); return v.reduce((s, x) => s + x, 0) / v.length; };
+  const items = [];
+  if (b5) items.push(["5M steps: NEAT laps completed", pct(mean(b5.runs, "neat", "laps")), "PPO " + pct(mean(b5.runs, "ppo", "laps")) + " · all 3 seeds each"]);
+  if (b5) items.push(["5M steps: mean lap time", sec(mean(b5.runs, "neat", "lap_time")), "NEAT, vs PPO " + sec(mean(b5.runs, "ppo", "lap_time"))]);
+  if (b5 && b5.reselected) {
+    const v = Object.entries(b5.reselected).filter(([k]) => k.startsWith("ppo")).map(([, r]) => r.laps);
+    items.push(["PPO with better checkpoint picking", pct(v.reduce((s, x) => s + x, 0) / v.length), "was " + pct(mean(b5.runs, "ppo", "laps")) + " · same training, 5M"]);
+  }
+  if (bh) items.push(["Hard physics: crashes", pct(mean(bh.runs, "ppo", "collisions")), "PPO, vs NEAT " + pct(mean(bh.runs, "neat", "collisions"))]);
+  box.innerHTML = items.map(([l, v, s]) => `<div class="tile"><div class="label">${l}</div><div class="value">${v}</div><div class="sub">${s}</div></div>`).join("");
+}
+
+// ---------------------------------------------------------------- runs chart
+let benchIndex = Math.max(0, DATA.benchmarks.findIndex(b => b.name === "ppo_vs_neat_5m"));
+let pick = "training";
+function segButtons(id, onPick) {
+  const seg = document.getElementById(id);
+  seg.innerHTML = DATA.benchmarks.map((b, i) => `<button data-i="${i}">${b.label}</button>`).join("");
+  seg.addEventListener("click", e => { const i = e.target.dataset.i; if (i !== undefined) onPick(+i); });
+}
+function syncButtons() {
+  for (const id of ["bench-seg", "bench-seg-2"])
+    document.querySelectorAll(`#${id} button`).forEach(b => b.setAttribute("aria-pressed", +b.dataset.i === benchIndex));
+  const b = DATA.benchmarks[benchIndex];
+  document.querySelectorAll("#pick-seg button").forEach(btn => {
+    btn.setAttribute("aria-pressed", btn.dataset.pick === pick);
+    if (btn.dataset.pick === "reselected") btn.disabled = !b.reselected;
+  });
+  if (!b.reselected && pick === "reselected") { pick = "training"; syncButtons(); }
+}
+function runsChart() {
+  const b = DATA.benchmarks[benchIndex];
+  const rows = b.runs.slice().sort((p, q) => (p.algorithm > q.algorithm ? -1 : 1) || p.seed - q.seed)
+    .map(r => {
+      const v = pick === "reselected" && b.reselected ? b.reselected[`${r.algorithm}/${r.seed}`] : r;
+      return {label: `${r.algorithm.toUpperCase()} seed ${r.seed}`, algo: r.algorithm, laps: v.laps, lap: v.lap_time, col: v.collisions};
+    });
+  for (const [name, ref] of Object.entries(b.baselines)) if (ref.laps > 0)
+    rows.push({label: name, algo: "scripted", laps: ref.laps, lap: ref.lap_time, col: null});
+  const W = 1040, H = 300, m = {l: 44, r: 8, t: 22, b: 40};
+  const svg = el("svg", {viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Laps completed per run"});
+  const iw = W - m.l - m.r, ih = H - m.t - m.b, y = v => m.t + ih * (1 - v);
+  for (const v of [0, .25, .5, .75, 1]) {
+    el("line", {x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: v === 0 ? "var(--axis)" : "var(--grid)"}, svg);
+    el("text", {x: m.l - 8, y: y(v) + 4, "text-anchor": "end"}, svg).textContent = (v * 100) + "%";
+  }
+  const band = iw / rows.length, bw = Math.min(54, band * 0.6);
+  rows.forEach((r, i) => {
+    const cx = m.l + band * (i + .5), top = y(r.laps);
+    const node = bar(svg, cx - bw / 2, top, bw, y(0) - top, algoColor(r.algo));
+    el("text", {x: cx, y: top - 6, "text-anchor": "middle", class: "value"}, svg).textContent = (100 * r.laps).toFixed(0) + "%";
+    el("text", {x: cx, y: H - m.b + 18, "text-anchor": "middle"}, svg).textContent = r.label;
+    const hit = el("rect", {x: cx - band / 2, y: m.t, width: band, height: ih, fill: "transparent"}, svg);
+    hover(hit, `<b>${r.label}</b><br>Laps completed: ${pct(r.laps)}<br>Mean lap time: ${sec(r.lap)}` + (r.col != null ? `<br>Crashes: ${pct(r.col)}` : ""));
+  });
+  document.getElementById("runs-chart").replaceChildren(svg);
+  table(document.getElementById("runs-table"), ["Run", "Laps completed", "Mean lap time", "Crashes"],
+    rows.map(r => [r.label, pct(r.laps), sec(r.lap), r.col == null ? "–" : pct(r.col)]), [0, 1, 1, 1]);
+}
+
+// ---------------------------------------------------------------- per-track dumbbell
+function tracksChart() {
+  const b = DATA.benchmarks[benchIndex];
+  const rows = b.tracks.filter(t => t.ppo != null || t.neat != null)
+    .sort((p, q) => Math.min(p.ppo ?? 1e9, p.neat ?? 1e9) - Math.min(q.ppo ?? 1e9, q.neat ?? 1e9));
+  const vals = rows.flatMap(r => [r.ppo, r.neat]).filter(x => x != null);
+  const lo = Math.floor(Math.min(...vals) - 0.5), hi = Math.ceil(Math.max(...vals) + 0.5);
+  const rowH = 22, W = 1040, m = {l: 170, r: 24, t: 10, b: 30}, H = m.t + m.b + rowH * rows.length;
+  const svg = el("svg", {viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Lap time per track"});
+  const x = v => m.l + (W - m.l - m.r) * (v - lo) / (hi - lo);
+  for (let v = lo; v <= hi; v++) {
+    el("line", {x1: x(v), x2: x(v), y1: m.t, y2: H - m.b, stroke: "var(--grid)"}, svg);
+    if ((v - lo) % 2 === 0) el("text", {x: x(v), y: H - m.b + 18, "text-anchor": "middle"}, svg).textContent = v + " s";
+  }
+  rows.forEach((r, i) => {
+    const cy = m.t + rowH * (i + .5);
+    const name = r.track + (r.split === "train" ? "  (trained on)" : r.split === "validation" ? "  (validation)" : "");
+    el("text", {x: m.l - 10, y: cy + 4, "text-anchor": "end"}, svg).textContent = name;
+    if (r.ppo != null && r.neat != null)
+      el("line", {x1: x(r.ppo), x2: x(r.neat), y1: cy, y2: cy, stroke: "var(--axis)", "stroke-width": 2}, svg);
+    for (const [k, c] of [["ppo", "var(--ppo)"], ["neat", "var(--neat)"]]) if (r[k] != null)
+      el("circle", {cx: x(r[k]), cy, r: 5, fill: c, stroke: "var(--surface-1)", "stroke-width": 2}, svg);
+    const hit = el("rect", {x: 0, y: cy - rowH / 2, width: W, height: rowH, fill: "transparent"}, svg);
+    const faster = r.ppo != null && r.neat != null ? (r.ppo < r.neat ? "PPO" : "NEAT") + " faster by " + Math.abs(r.ppo - r.neat).toFixed(2) + " s" : "";
+    hover(hit, `<b>${r.track}</b> (${r.split})<br>PPO: ${sec(r.ppo)}<br>NEAT: ${sec(r.neat)}<br>${faster}`);
+  });
+  document.getElementById("tracks-chart").replaceChildren(svg);
+  table(document.getElementById("tracks-table"), ["Track", "Split", "PPO", "NEAT"],
+    rows.map(r => [r.track, r.split, sec(r.ppo), sec(r.neat)]), [0, 0, 1, 1]);
+}
+
+// ---------------------------------------------------------------- traffic
+function trafficChart() {
+  const rows = DATA.traffic || [];
+  if (!rows.length) return;
+  const W = 1040, rowH = 46, m = {l: 210, r: 190, t: 24, b: 30}, H = m.t + m.b + rowH * rows.length;
+  const hitsX = W - 70;
+  const svg = el("svg", {viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Laps completed with traffic"});
+  const x = v => m.l + (W - m.l - m.r) * v / 100;
+  for (const v of [0, 25, 50, 75, 100]) {
+    el("line", {x1: x(v), x2: x(v), y1: m.t - 6, y2: H - m.b, stroke: v === 0 ? "var(--axis)" : "var(--grid)"}, svg);
+    el("text", {x: x(v), y: H - m.b + 18, "text-anchor": "middle"}, svg).textContent = v + "%";
+  }
+  el("text", {x: hitsX, y: m.t - 8}, svg).textContent = "hits / race";
+  rows.forEach((r, i) => {
+    const cy = m.t + rowH * i + 6, h = 14;
+    el("text", {x: m.l - 10, y: cy + 16, "text-anchor": "end"}, svg).textContent = r.driver;
+    const ghost = hbar(svg, x(0), cy, x(r.alone) - x(0), h, algoColor(r.driver)); ghost.setAttribute("opacity", ".28");
+    hbar(svg, x(0), cy + h + 2, x(r.traffic) - x(0), h, algoColor(r.driver));
+    el("text", {x: x(r.traffic) + 6, y: cy + 2 * h, class: "value"}, svg).textContent = r.traffic.toFixed(1) + "%";
+    el("text", {x: hitsX, y: cy + 2 * h, class: "value"}, svg).textContent = r.hits.toFixed(2);
+    const hit = el("rect", {x: 0, y: cy - 4, width: W, height: rowH, fill: "transparent"}, svg);
+    hover(hit, `<b>${r.driver}</b><br>Alone: ${r.alone.toFixed(1)}% laps<br>With 3 opponents: ${r.traffic.toFixed(1)}% laps, ${sec(r.lap_time_traffic)}<br>Hits on other cars: ${r.hits.toFixed(2)} per race`);
+  });
+  document.getElementById("traffic-chart").replaceChildren(svg);
+  const note = document.createElement("p"); note.className = "note";
+  note.textContent = "Faint bar: laps completed driving alone. Solid bar: with 3 opponents.";
+  document.getElementById("traffic-chart").appendChild(note);
+  table(document.getElementById("traffic-table"), ["Driver", "Alone", "With 3 opponents", "Lap time in traffic", "Hits / race"],
+    rows.map(r => [r.driver, r.alone.toFixed(1) + "%", r.traffic.toFixed(1) + "%", sec(r.lap_time_traffic), r.hits.toFixed(2)]), [0, 1, 1, 1, 1]);
+}
+
+// ---------------------------------------------------------------- grand prix
+function gpChart() {
+  const g = DATA.grand_prix;
+  if (!g) return;
+  document.getElementById("gp-note").textContent = `${g.races} races, ${g.laps} laps each, grid rotated every race, F1 points (25, 18, 15, ...). One seed per model.`;
+  const rows = g.standings, max = Math.max(...rows.map(r => r.points));
+  const W = 1040, rowH = 30, m = {l: 210, r: 60, t: 8, b: 8}, H = m.t + m.b + rowH * rows.length;
+  const svg = el("svg", {viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Grand Prix points"});
+  const x = v => m.l + (W - m.l - m.r) * v / max;
+  rows.forEach((r, i) => {
+    const cy = m.t + rowH * i + 6, h = 18;
+    el("text", {x: m.l - 10, y: cy + 13, "text-anchor": "end"}, svg).textContent = `${i + 1}. ${r.driver}`;
+    hbar(svg, x(0), cy, Math.max(2, x(r.points) - x(0)), h, algoColor(r.driver));
+    el("text", {x: x(r.points) + 6, y: cy + 13, class: "value"}, svg).textContent = r.points;
+    const hit = el("rect", {x: 0, y: cy - 6, width: W, height: rowH, fill: "transparent"}, svg);
+    hover(hit, `<b>${r.driver}</b> (${r.kind})<br>${r.points} points, ${r.wins} wins<br>Finished ${r.finished}/${r.races} races<br>Hits on other cars: ${r.contacts}`);
+  });
+  document.getElementById("gp-chart").replaceChildren(svg);
+  table(document.getElementById("gp-table"), ["#", "Driver", "Type", "Points", "Wins", "Finished", "Hits"],
+    rows.map((r, i) => [i + 1, r.driver, r.kind, r.points, r.wins, `${r.finished}/${r.races}`, r.contacts]), [1, 0, 0, 1, 1, 1, 1]);
+}
+
+// ---------------------------------------------------------------- wiring
+function renderBench() { syncButtons(); runsChart(); tracksChart(); }
+segButtons("bench-seg", i => { benchIndex = i; renderBench(); });
+segButtons("bench-seg-2", i => { benchIndex = i; renderBench(); });
+document.getElementById("pick-seg").addEventListener("click", e => {
+  if (e.target.dataset.pick && !e.target.disabled) { pick = e.target.dataset.pick; renderBench(); }
+});
+document.querySelectorAll(".toggle-table").forEach(btn => btn.addEventListener("click", () => {
+  const t = document.getElementById(btn.dataset.for + "-table"); t.hidden = !t.hidden;
+  btn.textContent = t.hidden ? "Show table" : "Hide table";
+}));
+function setTheme(t) {
+  document.documentElement.setAttribute("data-theme", t);
+  document.querySelectorAll("[data-theme-choice]").forEach(b => b.setAttribute("aria-pressed", b.dataset.themeChoice === t));
+  try { localStorage.setItem("nd-theme", t); } catch (e) {}
+}
+document.querySelectorAll("[data-theme-choice]").forEach(b => b.addEventListener("click", () => setTheme(b.dataset.themeChoice)));
+try { const t = localStorage.getItem("nd-theme"); if (t) setTheme(t); } catch (e) {}
+tiles(); renderBench(); trafficChart(); gpChart();
+</script>
+</body>
+</html>

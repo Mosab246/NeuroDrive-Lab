@@ -435,6 +435,14 @@ def _cmd_grand_prix(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_dashboard(args: argparse.Namespace) -> int:
+    from neurodrive.benchmark.dashboard import build_dashboard
+
+    out = build_dashboard(Path(args.results), Path(args.out))
+    print(f"wrote {out}")
+    return 0
+
+
 def _cmd_list_tracks(_: argparse.Namespace) -> int:
     for tid in builtin_track_ids():
         print(tid)
@@ -587,6 +595,11 @@ def build_parser() -> argparse.ArgumentParser:
     tl.add_argument("--count", type=int, default=6, help="how many snapshots (default 6)")
     viewer_args(tl)
     tl.set_defaults(func=_cmd_timeline)
+
+    db = sub.add_parser("dashboard", help="interactive HTML results dashboard")
+    db.add_argument("--results", default="results", help="results folder")
+    db.add_argument("--out", default="results/dashboard.html")
+    db.set_defaults(func=_cmd_dashboard)
 
     gp = sub.add_parser("grand-prix", help="a championship of real races, grid rotated")
     gp.add_argument("--driver", action="append", help="model file, baseline, or LABEL=either")

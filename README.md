@@ -129,6 +129,10 @@ policy has 5,058 weights.
   <img src="docs/images/phase7-neat-network.png" width="80%" alt="The evolved NEAT network, shown in the replay viewer">
 </p>
 
+An interactive version of these results (filters, hover details, table views, light/dark)
+is in [results/dashboard.html](results/dashboard.html): download it and open it in a browser,
+or regenerate it with `neurodrive dashboard`.
+
 All numbers come from logged runs with the exact commands, dates and hardware in
 [docs/results.md](docs/results.md).
 
