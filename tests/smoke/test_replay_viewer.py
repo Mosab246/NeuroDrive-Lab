@@ -84,3 +84,66 @@ def test_race_and_replay_commands(tmp_path, capsys):
     assert "verified" in text and "FPS average" in text
     assert main(["record", "--driver", "heuristic", "--out", str(tmp_path / "one")]) == 0
     assert (tmp_path / "one.npz").is_file()
+
+
+@pytest.fixture(scope="module")
+def race_replays():
+    from neurodrive.replay.race import record_race
+
+    entries = [driver_entry(n) for n in ("autopilot", "heuristic", "smoothed_random")]
+    return record_race(entries, "beginner_oval", laps=1, log=lambda _: None)
+
+
+def test_race_opens_with_start_lights_and_cars_on_the_grid(race_replays):
+    viewer = ReplayViewer(race_replays, frame_dt=1 / 60)
+    assert viewer.is_race and viewer.t == viewer.t_start < 0
+    viewer.draw()  # lights, grid
+    assert all(car.r.index_at(viewer.t) == 0 for car in viewer.cars)
+    viewer.seek(viewer.duration)
+    viewer.key(pygame.K_SPACE)  # at the end, Space restarts from the lights
+    assert viewer.t == viewer.t_start
+    pygame.quit()
+
+
+def test_camera_modes_minimap_and_gaps(race_replays):
+    viewer = ReplayViewer(race_replays, frame_dt=1 / 60)
+    for mode in ("track", "follow", "tv"):
+        viewer.key(pygame.K_z) if mode != "track" else None
+        assert viewer.camera_mode == mode
+        viewer.seek(8.0)
+        viewer.draw()
+    viewer.key(pygame.K_z)
+    assert viewer.camera_mode == "track"
+    leader = viewer.ranking()[0]
+    assert viewer.gap_to_leader(leader) is None
+    others = [viewer.gap_to_leader(k) for k in viewer.ranking()[1:]]
+    assert any(g is not None and g >= 0 for g in others)
+    pygame.quit()
+
+
+def test_skid_detection_from_a_path():
+    import numpy as np
+
+    from neurodrive.ui import art
+
+    n = 30
+    x = np.linspace(0, 29, n)
+    heading = np.zeros(n)
+    heading[15:] = 0.5  # car rotated but kept moving along x: a slide
+    skid, wheels = art.skid_profile(x, np.zeros(n), heading, np.full(n, 30.0), 1 / 30)
+    assert not skid[:15].any() and skid[15:].all()
+    assert wheels.shape == (n, 2, 2)
+    assert art.skid_runs(skid) == [(15, 30)]
+
+
+def test_video_export(replays, tmp_path):
+    import shutil
+
+    from neurodrive.ui.video import export_video
+
+    if shutil.which("ffmpeg") is None:
+        pytest.skip("ffmpeg not installed")
+    viewer = ReplayViewer(replays[:1], frame_dt=1 / 60)
+    out = export_video(viewer, tmp_path / "clip.mp4", fps=10, speed=8.0, hold_end_s=0.2,
+                       log=lambda _: None)  # fmt: skip
+    assert out.stat().st_size > 10_000

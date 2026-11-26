@@ -20,6 +20,10 @@ dependencies = [
     "matplotlib>=3.9",
 ]
 
+[project.optional-dependencies]
+# Bundled ffmpeg for `--video` export, if ffmpeg is not already on PATH.
+video = ["imageio-ffmpeg>=0.5"]
+
 [project.scripts]
 neurodrive = "neurodrive.cli:main"
 

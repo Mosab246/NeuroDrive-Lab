@@ -10,7 +10,8 @@ Controls:
     + / -               playback speed 0.25x .. 8x
     Home or R           back to the start
     Tab                 focus the next car (its sensor rays and network are shown)
-    Z                   camera: whole track <-> follow the focused car
+    Z                   camera: whole track -> follow the focused car -> TV (follows the
+                        closest battle)
     V                   show/hide the focused car's sensor rays
     N                   show/hide the focused car's network
     T                   show/hide trails
@@ -22,6 +23,7 @@ Controls:
 from __future__ import annotations
 
 import io
+import itertools
 import math
 import time
 
@@ -36,6 +38,9 @@ from neurodrive.ui import renderer as R
 from neurodrive.ui.app import _enable_dpi_awareness, _fmt_time
 from neurodrive.ui.clock import SPEEDS
 
+START_LIGHTS_S = 4.0  # races: seconds of start lights before the cars go
+LIGHT_STEP_S = 0.75  # one more red light every this many seconds
+GO_SHOWN_S = 1.0  # "GO" stays on screen this long after lights out
 PANEL_WIDTH = 360
 BAR_HEIGHT = 44
 TRAIL_STEPS = 240
@@ -70,6 +75,8 @@ class _Car:
             replay.x, replay.y, replay.heading, replay.speed, replay.dt
         )
         self.skid_runs = art.skid_runs(self.skid)
+        # Laps driven (fractional) at every step, for gaps between cars.
+        self.dist = replay.laps.astype(float) + replay.lap_fraction
 
     def corners(self, i: int) -> np.ndarray:
         r = self.r
@@ -126,12 +133,20 @@ class ReplayViewer:
         self.cars = [_Car(r, COLORS[i], params) for i, r in enumerate(replays)]
         self.dt = replays[0].dt
         self.duration = max(r.duration for r in replays)
-        self.t = 0.0
+        self.is_race = any(r.meta.get("multi_car") for r in replays)
+        self.race_laps = int(replays[0].meta.get("race", {}).get("laps", 1))
+        # A race opens with the start lights: playback begins before time 0, cars on the grid.
+        self.t_start = -START_LIGHTS_S if self.is_race else 0.0
+        self.t = self.t_start
+        self.camera_mode = "track"  # "track", "follow" or "tv"
+        self._tv_pair: tuple[int, ...] = (0,)
+        self._tv_since = -1e9
+        self._cam_center: np.ndarray | None = None
+        self._minimap: pygame.Surface | None = None
         self.speed_index = SPEEDS.index(1.0)
         self.playing = True
         self.running = True
         self.focus = 0
-        self.follow = False
         self.show_rays = True
         self.show_network = False
         self.show_trails = True
@@ -171,8 +186,16 @@ class ReplayViewer:
             pygame.quit()
         return frames
 
+    @property
+    def follow(self) -> bool:
+        return self.camera_mode == "follow"
+
+    @follow.setter
+    def follow(self, on: bool) -> None:
+        self.camera_mode = "follow" if on else "track"
+
     def seek(self, t: float) -> None:
-        self.t = min(max(0.0, t), self.duration)
+        self.t = min(max(self.t_start, t), self.duration)
 
     def _handle_events(self) -> None:
         for event in pygame.event.get():
@@ -181,7 +204,8 @@ class ReplayViewer:
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if self.bar.collidepoint(event.pos):
                     x = (event.pos[0] - self.bar.x - 16) / max(1, self.bar.width - 32)
-                    self.seek(min(max(x, 0.0), 1.0) * self.duration)
+                    span = self.duration - self.t_start
+                    self.seek(self.t_start + min(max(x, 0.0), 1.0) * span)
             elif event.type == pygame.KEYDOWN:
                 self.key(event.key, bool(event.mod & pygame.KMOD_SHIFT))
 
@@ -190,7 +214,7 @@ class ReplayViewer:
             self.running = False
         elif key == pygame.K_SPACE:
             if self.t >= self.duration:
-                self.seek(0.0)
+                self.seek(self.t_start)
             self.playing = not self.playing
         elif key in (pygame.K_LEFT, pygame.K_RIGHT):
             jump = 5.0 if shift else 1.0
@@ -200,12 +224,14 @@ class ReplayViewer:
         elif key in (pygame.K_MINUS, pygame.K_KP_MINUS):
             self.speed_index = max(self.speed_index - 1, 0)
         elif key in (pygame.K_HOME, pygame.K_r):
-            self.seek(0.0)
+            self.seek(self.t_start)
             self.playing = True
         elif key == pygame.K_TAB:
             self.focus = (self.focus + 1) % len(self.cars)
         elif key == pygame.K_z:
-            self.follow = not self.follow
+            modes = ["track", "follow"] + (["tv"] if len(self.cars) > 1 else [])
+            self.camera_mode = modes[(modes.index(self.camera_mode) + 1) % len(modes)]
+            self._cam_center = None
         elif key == pygame.K_v:
             self.show_rays = not self.show_rays
         elif key == pygame.K_n:
@@ -217,18 +243,65 @@ class ReplayViewer:
 
     # ------------------------------------------------------------------ drawing
     def _camera(self) -> R.Camera:
-        if not self.follow:
+        if self.camera_mode == "track":
             return self.track_view.fit
-        car = self.cars[self.focus]
-        center = car.center(car.r.index_at(self.t))
+        if self.camera_mode == "follow":
+            car = self.cars[self.focus]
+            center = car.center(car.r.index_at(self.t))
+        else:
+            target = self._tv_target()
+            # Glide towards the action instead of cutting, so the picture stays watchable.
+            if self._cam_center is None or np.hypot(*(target - self._cam_center)) > 120.0:
+                self._cam_center = target
+            else:
+                self._cam_center = self._cam_center + 0.15 * (target - self._cam_center)
+            center = self._cam_center
         return R.Camera(self.track_view.follow_scale, center, self.track_view.viewport.center)
 
-    def ranking(self) -> list[int]:
+    TV_HOLD_S = 3.0  # keep a shot at least this long before switching battles
+
+    def _tv_target(self) -> np.ndarray:
+        """Centre of the closest fight between two cars still racing (consecutive in the
+        standings); the leader when nobody is close. Re-chosen at most every few seconds."""
+        racing = [
+            k for k in self.ranking() if not self.cars[k].finished(self.cars[k].r.index_at(self.t))
+        ]
+        if abs(self.t - self._tv_since) >= self.TV_HOLD_S or not all(
+            k in racing for k in self._tv_pair
+        ):
+            pair: tuple[int, ...] = (racing[0],) if racing else (self.ranking()[0],)
+            best = 0.25  # only pairs within a quarter lap count as a battle
+            for a, b in itertools.pairwise(racing):
+                gap = self._lap_distance(a) - self._lap_distance(b)
+                if gap < best:
+                    best, pair = gap, (a, b)
+            self._tv_pair, self._tv_since = pair, self.t
+        points = [self.cars[k].center(self.cars[k].r.index_at(self.t)) for k in self._tv_pair]
+        return np.mean(points, axis=0)
+
+    def _lap_distance(self, k: int) -> float:
+        car = self.cars[k]
+        return float(car.dist[car.r.index_at(self.t)])
+
+    def gap_to_leader(self, k: int) -> float | None:
+        """Seconds behind the leader: how long ago the leader was where car ``k`` is now."""
+        lead = self.ranking()[0]
+        if k == lead or self.t <= 0:
+            return None
+        here = self._lap_distance(k)
+        leader = self.cars[lead]
+        j = int(np.searchsorted(np.maximum.accumulate(leader.dist), here))
+        if j >= len(leader.dist):
+            return None
+        return max(0.0, self.t - j * self.dt)
+
+    def ranking(self, t: float | None = None) -> list[int]:
         """Car indices, leader first: finished laps by lap time, then by distance."""
+        at = self.t if t is None else t
 
         def key(k: int) -> tuple[int, float]:
             car = self.cars[k]
-            i = car.r.index_at(self.t)
+            i = car.r.index_at(at)
             if car.finished(i) and car.lap_time is not None:
                 return (0, car.lap_time)
             if car.finished(i):
@@ -252,10 +325,54 @@ class ReplayViewer:
         for car in self.cars:  # smoke above the cars
             self._draw_smoke(car, camera)
         self.screen.set_clip(clip)
+        if camera is not self.track_view.fit:
+            self._draw_minimap()
+        if self.is_race:
+            self._draw_start_lights()
         if self.show_network:
             self._draw_network()
         self._draw_panel()
         self._draw_bar()
+
+    def _draw_start_lights(self) -> None:
+        """Five red lights come on one by one; all go out at time 0 (the race starts)."""
+        if self.t >= GO_SHOWN_S:
+            return
+        view = self.track_view.viewport
+        r, gap = 18, 14
+        width = 5 * 2 * r + 4 * gap + 40
+        box = pygame.Rect(0, 0, width, 2 * r + 30)
+        box.midtop = (view.centerx, view.top + 20)
+        pygame.draw.rect(self.screen, (12, 12, 14), box, border_radius=10)
+        lit = 0 if self.t >= 0 else min(5, int((self.t - self.t_start) / LIGHT_STEP_S) + 1)
+        for n in range(5):
+            center = (box.left + 20 + r + n * (2 * r + gap), box.centery)
+            color = (230, 30, 30) if n < lit else (55, 20, 20)
+            pygame.draw.circle(self.screen, color, center, r)
+        if self.t >= 0:
+            go = self.font_big.render("GO", True, (90, 230, 110))
+            self.screen.blit(go, go.get_rect(midtop=(box.centerx, box.bottom + 6)))
+
+    def _draw_minimap(self) -> None:
+        """Whole-track overview with every car, shown while the camera is zoomed in."""
+        size = 210
+        view = self.track_view.viewport
+        if self._minimap is None:
+            surf = pygame.Surface((size, size), pygame.SRCALPHA)
+            surf.fill((10, 12, 16, 238))
+            self._mini_cam = R.fit_camera(self.track, surf.get_rect(), margin=12)
+            for edge in (self.track.left_edge, self.track.right_edge):
+                pts = self._mini_cam.to_screen(edge)
+                pygame.draw.aalines(surf, (200, 204, 212), True, pts.tolist())
+            self._minimap = surf
+        origin = (view.right - size - 12, view.top + 12)
+        self.screen.blit(self._minimap, origin)
+        for k, car in enumerate(self.cars):
+            i = car.r.index_at(self.t)
+            p = self._mini_cam.to_screen(car.center(i))[0] + origin
+            radius = 5 if k == self.focus else 4
+            color = R.CAR_CRASHED if car.finished(i) and car.end == "collision" else car.color
+            pygame.draw.circle(self.screen, color, (round(p[0]), round(p[1])), radius)
 
     def _draw_skids(self, car: _Car, camera: R.Camera) -> None:
         if not self.show_effects:
@@ -343,8 +460,16 @@ class ReplayViewer:
         y += 38
         for label, value in (
             ("track", self.track.spec.name),
-            ("time", f"{_fmt_time(self.t)} / {_fmt_time(self.duration)}"),
+            (
+                "time",
+                ("start lights" if self.t < 0 else _fmt_time(self.t))
+                + f" / {_fmt_time(self.duration)}",
+            ),
             ("playback", f"{self.speed:g}x {'playing' if self.playing else 'paused'}"),
+            (
+                "camera",
+                {"track": "whole track", "follow": "follow car", "tv": "TV"}[self.camera_mode],
+            ),
             ("fps", f"{self.measured_fps:4.0f}" if self.measured_fps > 0 else "-"),
         ):
             self.screen.blit(self.font.render(label, True, R.TEXT_DIM), (x0, y))
@@ -354,9 +479,11 @@ class ReplayViewer:
         y += 10
         self.screen.blit(self.font.render("standings", True, R.TEXT_DIM), (x0, y))
         y += 24
+        before = {k: n for n, k in enumerate(self.ranking(max(self.t_start, self.t - 1.5)))}
         for place, k in enumerate(self.ranking(), start=1):
             car = self.cars[k]
             i = car.r.index_at(self.t)
+            moved = before[k] - (place - 1)  # > 0: gained places in the last 1.5 s
             if k == self.focus:
                 pygame.draw.rect(
                     self.screen, (34, 40, 50), (panel.x + 6, y - 3, PANEL_WIDTH - 12, 46)
@@ -364,11 +491,26 @@ class ReplayViewer:
             pygame.draw.rect(self.screen, car.color, (x0, y + 2, 12, 12))
             name = self.font.render(f"{place}. {car.r.label}", True, R.TEXT)
             self.screen.blit(name, (x0 + 20, y))
-            st = self.font.render(car.status(i), True, R.TEXT)
+            if moved and not car.finished(i):
+                ax, ay = x0 + 26 + name.get_width(), y + 8
+                if moved > 0:
+                    tri = [(ax, ay + 4), (ax + 10, ay + 4), (ax + 5, ay - 5)]
+                    pygame.draw.polygon(self.screen, (90, 220, 110), tri)
+                else:
+                    tri = [(ax, ay - 4), (ax + 10, ay - 4), (ax + 5, ay + 5)]
+                    pygame.draw.polygon(self.screen, (235, 90, 80), tri)
+            status = car.status(i)
+            if self.is_race and not car.finished(i):
+                lap_no = min(int(car.r.laps[i]) + 1, self.race_laps)
+                status = f"L{lap_no}/{self.race_laps} {100 * max(0.0, car.r.lap_fraction[i]):3.0f}%"
+            st = self.font.render(status, True, R.TEXT)
             self.screen.blit(st, (x1 - st.get_width(), y))
             kind = car.r.meta.get("kind_description", car.r.meta.get("controller_kind", "?"))
             tag_color = LEARNED_TAG if car.learned else SCRIPTED_TAG
             speed = f"{car.r.speed[i] * 3.6:5.0f} km/h"
+            gap = self.gap_to_leader(k) if self.is_race and not car.finished(i) else None
+            if gap is not None:
+                speed = f"+{gap:.1f} s   {speed}"
             self.screen.blit(self.font_small.render(kind, True, tag_color), (x0 + 20, y + 21))
             sp = self.font_small.render(speed, True, R.TEXT_DIM)
             self.screen.blit(sp, (x1 - sp.get_width(), y + 21))
@@ -376,8 +518,8 @@ class ReplayViewer:
         help_lines = [
             "Space play/pause   Left/Right seek",
             "+/- speed   R restart   Tab focus",
-            "Z follow   V rays   N network",
-            "T trails   click bar to jump   Esc",
+            "Z camera   V rays   N network",
+            "T trails   E skids   click bar   Esc",
         ]
         y = h - 12 - 20 * len(help_lines)
         for line in help_lines:

@@ -323,9 +323,21 @@ def _show_replays(replays: list, title: str, args: argparse.Namespace) -> int:
             print(f"wrote {rep.save(out / f'{i:02d}_{safe}.npz')}")
     if getattr(args, "no_window", False):
         return 0
+    if args.video:
+        import os
+
+        os.environ.setdefault("SDL_VIDEODRIVER", "dummy")  # render off-screen
+        from neurodrive.ui.replay_viewer import ReplayViewer
+        from neurodrive.ui.video import export_video
+
+        viewer = ReplayViewer(replays, title=title, size=(args.width, args.height))
+        viewer.camera_mode = args.camera
+        export_video(viewer, args.video, fps=args.fps, speed=args.video_speed)
+        return 0
     from neurodrive.ui.replay_viewer import ReplayViewer
 
     viewer = ReplayViewer(replays, title=title, size=(args.width, args.height))
+    viewer.camera_mode = args.camera
     frames = viewer.run(max_frames=args.frames)
     s = viewer.frame_time_stats()
     print(
@@ -539,6 +551,12 @@ def build_parser() -> argparse.ArgumentParser:
         a.add_argument("--width", type=int, default=1400)
         a.add_argument("--height", type=int, default=860)
         a.add_argument("--frames", type=int, default=None, help=argparse.SUPPRESS)
+        a.add_argument(
+            "--camera", choices=["track", "follow", "tv"], default="track", help="start camera"
+        )
+        a.add_argument("--video", default=None, help="write an MP4 instead of opening a window")
+        a.add_argument("--fps", type=int, default=30, help="video frame rate")
+        a.add_argument("--video-speed", type=float, default=1.0, help="video playback speed")
 
     rp = sub.add_parser("replay", help="play back saved replay files (several = a race)")
     rp.add_argument("files", nargs="+", help="replay .npz files on the same track")
