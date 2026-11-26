@@ -44,7 +44,12 @@ def _cmd_train(args: argparse.Namespace) -> int:
             raise ValueError("--timesteps is for PPO; NEAT uses --generations")
         nexp = load_neat_config(args.config) if args.config else NEATExperiment()
         ndata = nexp.model_dump()
-        overrides = {"seed": args.seed, "generations": args.generations}
+        overrides = {
+            "seed": args.seed,
+            "generations": args.generations,
+            "validation_tracks": _val_tracks(args),
+            "validation_episodes": args.validation_episodes,
+        }
         ndata["neat"].update({k: v for k, v in overrides.items() if v is not None})
         if args.name:
             ndata["name"] = args.name
@@ -59,7 +64,12 @@ def _cmd_train(args: argparse.Namespace) -> int:
     if args.generations is not None:
         raise ValueError("--generations is for NEAT; PPO uses --timesteps")
     exp = load_ppo_config(args.config) if args.config else PPOExperiment()
-    overrides = {"seed": args.seed, "total_timesteps": args.timesteps}
+    overrides = {
+        "seed": args.seed,
+        "total_timesteps": args.timesteps,
+        "validation_tracks": _val_tracks(args),
+        "eval_episodes": args.validation_episodes,
+    }
     data = exp.model_dump()
     data["training"].update({k: v for k, v in overrides.items() if v is not None})
     if args.name:
@@ -69,9 +79,33 @@ def _cmd_train(args: argparse.Namespace) -> int:
     return 0
 
 
+def _val_tracks(args: argparse.Namespace) -> tuple[str, ...] | None:
+    spec = getattr(args, "validation_tracks", None)
+    return tuple(expand_tracks(spec)) if spec else None
+
+
+def _cmd_reselect(args: argparse.Namespace) -> int:
+    from neurodrive.benchmark.reselect import reselect_runs
+
+    reselect_runs([Path(r) for r in args.runs], expand_tracks(args.validation_tracks),
+                  args.episodes, args.workers)  # fmt: skip
+    return 0
+
+
 def _cmd_benchmark(args: argparse.Namespace) -> int:
     from neurodrive.benchmark.report import build_report
 
+    if args.action == "reselect":
+        from neurodrive.benchmark.reselect import reselect_benchmark
+
+        if not args.dir:
+            raise ValueError("benchmark reselect needs --dir runs/benchmark/<name>")
+        bench_dir = Path(args.dir)
+        out = Path(args.out or f"results/benchmark/{bench_dir.name}")
+        reselect_benchmark(
+            bench_dir, out, expand_tracks(args.validation_tracks), args.episodes, args.workers
+        )
+        return 0
     if args.action == "run":
         from neurodrive.benchmark.config import load_benchmark_config
         from neurodrive.benchmark.runner import Benchmark
@@ -266,6 +300,11 @@ def expand_tracks(spec: str) -> list[str]:
             if not ids:
                 raise ValueError(f"no built-in tracks with split '{split}'")
             out += ids
+        elif part.startswith("pval:"):
+            n = int(part[5:])
+            if n < 1:
+                raise ValueError("pval:N needs N >= 1")
+            out += [f"pval_{i}" for i in range(n)]
         elif part.startswith("proc:"):
             n = int(part[5:])
             if n < 1:
@@ -390,6 +429,14 @@ def _cmd_list_tracks(_: argparse.Namespace) -> int:
     return 0
 
 
+def _reselect_args(a: argparse.ArgumentParser) -> None:
+    from neurodrive.benchmark.reselect import DEFAULT_VALIDATION
+
+    a.add_argument("--validation-tracks", default=DEFAULT_VALIDATION, help="re-selection tracks")
+    a.add_argument("--episodes", type=int, default=5, help="validation scenarios per track")
+    a.add_argument("--workers", type=int, default=8, help="parallel processes")
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="neurodrive", description="NeuroDrive Lab")
     p.add_argument("--version", action="version", version=f"neurodrive {__version__}")
@@ -452,15 +499,29 @@ def build_parser() -> argparse.ArgumentParser:
     tr.add_argument("--name", default=None, help="override the experiment name")
     tr.add_argument("--runs-dir", default=None, help="parent folder (default runs/<algo>)")
     tr.add_argument("--resume", default=None, help="continue from a checkpoint file")
+    tr.add_argument(
+        "--validation-tracks",
+        default=None,
+        help="tracks for picking the best checkpoint, e.g. 'validation_circuit,pval:3,split:train'",
+    )
+    tr.add_argument(
+        "--validation-episodes", type=int, default=None, help="validation scenarios per track"
+    )
     tr.set_defaults(func=_cmd_train)
 
     bm = sub.add_parser("benchmark", help="run the PPO-vs-NEAT benchmark, or rebuild its report")
-    bm.add_argument("action", choices=["run", "report"])
+    bm.add_argument("action", choices=["run", "report", "reselect"])
     bm.add_argument("--config", default=None, help="benchmark YAML (for run)")
     bm.add_argument("--dir", default=None, help="benchmark folder (for report)")
     bm.add_argument("--root", default="runs/benchmark", help="parent folder for benchmarks")
     bm.add_argument("--out", default=None, help="report folder (default results/benchmark/<name>)")
+    _reselect_args(bm)
     bm.set_defaults(func=_cmd_benchmark)
+
+    rs = sub.add_parser("reselect", help="re-pick the best checkpoint of runs, wider validation")
+    rs.add_argument("runs", nargs="+", help="PPO or NEAT run folders")
+    _reselect_args(rs)
+    rs.set_defaults(func=_cmd_reselect)
 
     sn = sub.add_parser("show-network", help="draw a NEAT model's network to a PNG")
     sn.add_argument("model", help="a NEAT model .pkl")

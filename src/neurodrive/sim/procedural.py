@@ -22,6 +22,10 @@ import numpy as np
 from neurodrive.sim.track import Track, TrackError, TrackSpec, build_track
 
 PROCEDURAL_PREFIX = "proc_"
+#: Procedural *validation* tracks ``pval_<n>``: same generator, a disjoint seed range, so they
+#: never coincide with a test track ``proc_<seed>``.
+VALIDATION_PREFIX = "pval_"
+VALIDATION_SEED_OFFSET = 1_000_000
 
 
 @dataclass(frozen=True)
@@ -72,7 +76,9 @@ def random_shape(rng: np.random.Generator, difficulty: float = 1.0) -> RadialSha
     return RadialShape(radius, tuple(terms), clockwise=bool(rng.integers(2)))
 
 
-def procedural_track(seed: int, difficulty: float = 1.0, width: float = 11.0) -> Track:
+def procedural_track(
+    seed: int, difficulty: float = 1.0, width: float = 11.0, validation: bool = False
+) -> Track:
     """Deterministic random test track ``proc_<seed>``.
 
     If a draw is undrivable it is redrawn with gentler bends (up to 20 tries), so a given
@@ -80,16 +86,18 @@ def procedural_track(seed: int, difficulty: float = 1.0, width: float = 11.0) ->
     """
     if seed < 0:
         raise ValueError("procedural track seed must be >= 0")
-    rng = np.random.default_rng([seed, 7919])
+    prefix, split = (VALIDATION_PREFIX, "validation") if validation else (PROCEDURAL_PREFIX, "test")
+    draw_seed = seed + VALIDATION_SEED_OFFSET if validation else seed
+    rng = np.random.default_rng([draw_seed, 7919])
     scale = difficulty
     for _ in range(20):
         shape = random_shape(rng, scale)
         spec = shape_spec(
-            f"{PROCEDURAL_PREFIX}{seed}",
-            f"Procedural #{seed}",
+            f"{prefix}{seed}",
+            f"Procedural {'validation ' if validation else ''}#{seed}",
             shape,
             width=width,
-            split="test",
+            split=split,
             difficulty=f"procedural x{difficulty:g}",
         )
         try:

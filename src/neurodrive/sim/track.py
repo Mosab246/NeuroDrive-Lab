@@ -182,12 +182,17 @@ def builtin_track_ids() -> list[str]:
 
 
 def load_any_track(id_or_path: str | Path) -> Track:
-    """Like :func:`load_track`, plus procedural tracks named ``proc_<seed>``."""
+    """Like :func:`load_track`, plus procedural tracks: ``proc_<seed>`` (test split) and
+    ``pval_<n>`` (validation split)."""
     name = str(id_or_path)
     if name.startswith("proc_") and name[5:].isdigit():
         from neurodrive.sim.procedural import procedural_track
 
         return procedural_track(int(name[5:]))
+    if name.startswith("pval_") and name[5:].isdigit():
+        from neurodrive.sim.procedural import procedural_track
+
+        return procedural_track(int(name[5:]), validation=True)
     return load_track(id_or_path)
 
 
