@@ -21,6 +21,20 @@ env:
       - runs/league/r1/neat_traffic_s2.pkl
     learned_share: 0.67           # each opponent: learned with p=2/3, else scripted
 
+ppo:                     # tuned: trial tune_t07 of `neurodrive tune ppo` (docs/phases/phase-12.md)
+  learning_rate: 0.000636
+  n_steps: 512
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.98
+  gae_lambda: 0.9
+  clip_range: 0.2
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  net_arch: [128, 128]
+  log_std_init: 0.0
+
 training:
   total_timesteps: 2000000
   n_envs: 8

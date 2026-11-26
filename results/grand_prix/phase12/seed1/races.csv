@@ -1,0 +1,97 @@
+race,track,driver,kind,grid,position,outcome,finish_time,contacts,points
+1,unseen_a,PPO solo,learned (PPO),1,1,finished,44.88333333333333,1,25
+1,unseen_a,PPO traffic,learned (PPO),2,7,collision,,1,0
+1,unseen_a,NEAT solo,learned (NEAT),3,2,finished,45.8,3,18
+1,unseen_a,NEAT traffic,learned (NEAT),4,6,collision,,5,0
+1,unseen_a,PPO self-play,learned (PPO),5,8,collision,,0,0
+1,unseen_a,NEAT self-play,learned (NEAT),6,3,finished,49.56666666666666,2,15
+1,unseen_a,autopilot,scripted (privileged),7,4,finished,57.983333333333334,1,12
+1,unseen_a,heuristic,scripted (sensors only),8,5,finished,64.11666666666667,1,10
+2,unseen_b,PPO traffic,learned (PPO),1,1,finished,42.233333333333334,0,25
+2,unseen_b,NEAT solo,learned (NEAT),2,4,finished,49.599999999999994,3,12
+2,unseen_b,NEAT traffic,learned (NEAT),3,3,finished,48.666666666666664,2,15
+2,unseen_b,PPO self-play,learned (PPO),4,2,finished,42.95,0,18
+2,unseen_b,NEAT self-play,learned (NEAT),5,8,collision,,1,0
+2,unseen_b,autopilot,scripted (privileged),6,6,finished,62.65,5,8
+2,unseen_b,heuristic,scripted (sensors only),7,5,finished,61.18333333333333,2,10
+2,unseen_b,PPO solo,learned (PPO),8,7,collision,,5,0
+3,proc_0,NEAT solo,learned (NEAT),1,1,finished,43.766666666666666,0,25
+3,proc_0,NEAT traffic,learned (NEAT),2,5,finished,52.81666666666666,3,10
+3,proc_0,PPO self-play,learned (PPO),3,4,finished,48.666666666666664,3,12
+3,proc_0,NEAT self-play,learned (NEAT),4,2,finished,46.86666666666667,3,18
+3,proc_0,autopilot,scripted (privileged),5,7,finished,67.41666666666667,4,6
+3,proc_0,heuristic,scripted (sensors only),6,6,finished,66.4,0,8
+3,proc_0,PPO solo,learned (PPO),7,8,collision,,4,0
+3,proc_0,PPO traffic,learned (PPO),8,3,finished,48.03333333333333,3,15
+4,proc_1,NEAT traffic,learned (NEAT),1,3,finished,51.41666666666667,1,15
+4,proc_1,PPO self-play,learned (PPO),2,1,finished,43.7,0,25
+4,proc_1,NEAT self-play,learned (NEAT),3,2,finished,49.53333333333333,1,18
+4,proc_1,autopilot,scripted (privileged),4,6,finished,66.15,0,8
+4,proc_1,heuristic,scripted (sensors only),5,4,finished,64.16666666666666,2,12
+4,proc_1,PPO solo,learned (PPO),6,7,collision,,1,0
+4,proc_1,PPO traffic,learned (PPO),7,8,collision,,1,0
+4,proc_1,NEAT solo,learned (NEAT),8,5,finished,65.23333333333333,0,10
+5,proc_2,PPO self-play,learned (PPO),1,1,finished,42.18333333333334,0,25
+5,proc_2,NEAT self-play,learned (NEAT),2,2,finished,46.85,0,18
+5,proc_2,autopilot,scripted (privileged),3,5,finished,59.81666666666666,7,10
+5,proc_2,heuristic,scripted (sensors only),4,4,finished,58.849999999999994,1,12
+5,proc_2,PPO solo,learned (PPO),5,7,collision,,4,0
+5,proc_2,PPO traffic,learned (PPO),6,6,collision,,4,0
+5,proc_2,NEAT solo,learned (NEAT),7,8,collision,,0,0
+5,proc_2,NEAT traffic,learned (NEAT),8,3,finished,49.31666666666666,0,15
+6,proc_3,NEAT self-play,learned (NEAT),1,5,collision,,1,0
+6,proc_3,autopilot,scripted (privileged),2,3,finished,68.35,7,15
+6,proc_3,heuristic,scripted (sensors only),3,4,finished,70.08333333333333,6,12
+6,proc_3,PPO solo,learned (PPO),4,6,collision,,1,0
+6,proc_3,PPO traffic,learned (PPO),5,7,collision,,1,0
+6,proc_3,NEAT solo,learned (NEAT),6,8,collision,,1,0
+6,proc_3,NEAT traffic,learned (NEAT),7,2,finished,59.85,1,18
+6,proc_3,PPO self-play,learned (PPO),8,1,finished,50.18333333333334,0,25
+7,proc_4,autopilot,scripted (privileged),1,4,finished,52.96666666666667,3,12
+7,proc_4,heuristic,scripted (sensors only),2,5,finished,56.25,5,10
+7,proc_4,PPO solo,learned (PPO),3,1,finished,42.11666666666667,7,25
+7,proc_4,PPO traffic,learned (PPO),4,7,collision,,0,0
+7,proc_4,NEAT solo,learned (NEAT),5,8,collision,,0,0
+7,proc_4,NEAT traffic,learned (NEAT),6,2,finished,45.21666666666667,1,18
+7,proc_4,PPO self-play,learned (PPO),7,6,collision,,10,0
+7,proc_4,NEAT self-play,learned (NEAT),8,3,finished,46.68333333333334,10,15
+8,proc_5,heuristic,scripted (sensors only),1,4,finished,60.0,2,12
+8,proc_5,PPO solo,learned (PPO),2,1,finished,43.21666666666667,3,25
+8,proc_5,PPO traffic,learned (PPO),3,7,collision,,3,0
+8,proc_5,NEAT solo,learned (NEAT),4,8,stalled,,2,0
+8,proc_5,NEAT traffic,learned (NEAT),5,2,finished,48.25,2,18
+8,proc_5,PPO self-play,learned (PPO),6,6,collision,,0,0
+8,proc_5,NEAT self-play,learned (NEAT),7,3,finished,48.916666666666664,0,15
+8,proc_5,autopilot,scripted (privileged),8,5,finished,61.05,0,10
+9,proc_6,PPO solo,learned (PPO),1,1,finished,43.68333333333334,0,25
+9,proc_6,PPO traffic,learned (PPO),2,2,finished,44.8,0,18
+9,proc_6,NEAT solo,learned (NEAT),3,8,collision,,0,0
+9,proc_6,NEAT traffic,learned (NEAT),4,4,finished,50.53333333333333,1,12
+9,proc_6,PPO self-play,learned (PPO),5,3,finished,45.4,2,15
+9,proc_6,NEAT self-play,learned (NEAT),6,5,finished,50.93333333333334,1,10
+9,proc_6,autopilot,scripted (privileged),7,7,finished,62.71666666666667,0,6
+9,proc_6,heuristic,scripted (sensors only),8,6,finished,62.03333333333333,0,8
+10,proc_7,PPO traffic,learned (PPO),1,1,finished,49.03333333333333,1,25
+10,proc_7,NEAT solo,learned (NEAT),2,2,finished,49.86666666666667,2,18
+10,proc_7,NEAT traffic,learned (NEAT),3,3,finished,62.2,0,15
+10,proc_7,PPO self-play,learned (PPO),4,8,collision,,0,0
+10,proc_7,NEAT self-play,learned (NEAT),5,4,finished,62.86666666666667,0,12
+10,proc_7,autopilot,scripted (privileged),6,6,finished,68.46666666666667,1,8
+10,proc_7,heuristic,scripted (sensors only),7,5,finished,66.03333333333333,0,10
+10,proc_7,PPO solo,learned (PPO),8,7,collision,,2,0
+11,proc_8,NEAT solo,learned (NEAT),1,1,finished,41.65,0,25
+11,proc_8,NEAT traffic,learned (NEAT),2,5,finished,48.849999999999994,1,10
+11,proc_8,PPO self-play,learned (PPO),3,2,finished,43.13333333333333,1,18
+11,proc_8,NEAT self-play,learned (NEAT),4,3,finished,44.833333333333336,0,15
+11,proc_8,autopilot,scripted (privileged),5,8,finished,89.5,7,4
+11,proc_8,heuristic,scripted (sensors only),6,7,finished,88.6,25,6
+11,proc_8,PPO solo,learned (PPO),7,6,finished,84.53333333333333,32,8
+11,proc_8,PPO traffic,learned (PPO),8,4,finished,45.58333333333333,2,12
+12,proc_9,NEAT traffic,learned (NEAT),1,2,finished,61.650000000000006,0,18
+12,proc_9,PPO self-play,learned (PPO),2,1,finished,47.916666666666664,0,25
+12,proc_9,NEAT self-play,learned (NEAT),3,6,collision,,0,0
+12,proc_9,autopilot,scripted (privileged),4,4,finished,65.56666666666666,3,12
+12,proc_9,heuristic,scripted (sensors only),5,3,finished,64.23333333333333,1,15
+12,proc_9,PPO solo,learned (PPO),6,5,collision,,2,0
+12,proc_9,PPO traffic,learned (PPO),7,7,collision,,0,0
+12,proc_9,NEAT solo,learned (NEAT),8,8,collision,,0,0

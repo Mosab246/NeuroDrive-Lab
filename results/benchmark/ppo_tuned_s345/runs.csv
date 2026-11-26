@@ -1,0 +1,4 @@
+algorithm,seed,env_steps_used,train_wall_seconds,steps_to_first_val_lap,steps_to_all_val_laps,best_model_at_steps,test_episodes,test_completed,test_completion_rate,test_collision_rate,test_mean_lap_fraction,test_mean_episode_steps,test_lap_time_mean,test_lap_time_n
+ppo,3,1003520,891.2,150000.0,250000.0,800000,520,520,1.0,0.0,1.0,659.9076923076923,21.98865384615385,520
+ppo,4,1003520,1228.6,100000.0,350000.0,750000,520,439,0.8442307692307692,0.15576923076923077,0.93687227997584,607.876923076923,21.266742596810932,439
+ppo,5,1003520,1755.0,100000.0,200000.0,300000,520,520,1.0,0.0,1.0,659.0615384615385,21.960608974358973,520

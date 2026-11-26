@@ -37,7 +37,7 @@ a replay viewer to see what the numbers mean.
 | **Agent outputs** | Steering and throttle/brake, continuous in [-1, 1] |
 | **Tracks** | 6 hand-built (train / validation / test, both directions) + unlimited procedural |
 | **Evaluation** | 26 tracks x 20 fixed scenarios with random starts, 3 seeds per algorithm |
-| **Quality** | 246 automated tests, CI on Windows and Linux, fully reproducible runs |
+| **Quality** | 251 automated tests, CI on Windows and Linux, fully reproducible runs |
 
 ## Key results
 
@@ -103,24 +103,32 @@ agents adapt. [Report](results/benchmark/ppo_vs_neat_dynamic_3m/report.md).
   <img src="docs/images/demo-drift.gif" width="60%" alt="A PPO car sliding through a corner, leaving skid marks and tyre smoke">
 </p>
 
-### 4. Racing: two very different driving styles
+### 4. Racing: self-play makes the most reliable racers
 
-In real races (cars see each other with their sensors and collide), the two algorithms
-behave differently. Tested on 22 tracks with 3 opponents, 3 seeds per model:
+In real races (cars see each other with their sensors and collide), how an agent was trained
+decides how it races. Tested on 22 tracks with 3 opponents, 3 seeds per model; "learned
+opponents" are AI drivers none of the models trained against:
 
-| Driver | Laps completed, alone | Laps completed, 3 opponents | Hits on other cars per race |
-|---|---|---|---|
-| PPO trained alone | 93.1% | 85.2% | 2.98 |
-| PPO trained with traffic | 96.5% | 93.0% | 1.61 |
-| NEAT trained alone | **98.6%** | 51.2% | 0.48 |
-| NEAT trained with traffic | 97.3% | **96.9%** | 0.88 |
+| Driver | Laps completed, scripted opponents | Laps completed, learned opponents |
+|---|---|---|
+| PPO trained alone | 85.2% | 82.3% |
+| PPO trained with traffic | 93.0% | 88.9% |
+| **PPO self-play** | **96.1%** | **95.3%** |
+| NEAT trained alone | 51.2% | 90.9% |
+| NEAT trained with traffic | 96.9% | 95.9% |
+| **NEAT self-play** | **98.6%** | **98.1%** |
 
-PPO bumps its way through traffic; NEAT trained alone avoids other cars but swerves into
-the wall to do so, losing half its laps. Trained with opponents on track, NEAT barely
-notices them. In three 12-race championships (one per seed, rotated grids, F1 scoring),
-NEAT trained with traffic finished 33 of 36 races and won on points (575, vs. 527 and
-512 for the PPO drivers); PPO won the most races but crashed out of a third.
-[Standings](results/grand_prix/phase10/summary.md).
+*Self-play*: trained against a league of earlier learned drivers at full pace, plus scripted
+cars. It gives the most reliable driver of each algorithm and the smallest spread between
+seeds. NEAT trained alone avoids other cars but swerves into the wall to do so; PPO bumps its
+way through. In three 8-car championships (one per seed, rotated grids, F1 scoring), PPO
+self-play won on points (507, top two in every seed), ahead of NEAT trained with traffic (483).
+[Self-play report](docs/phases/phase-12.md), [standings](results/grand_prix/phase12/summary.md).
+
+**Tuning PPO helps speed, not reliability.** A validation-only hyperparameter search
+(`neurodrive tune ppo`) found settings that learn about twice as fast and lap 0.5 s quicker,
+but on fresh seeds and the test tracks they completed 94.8% of laps vs. 94.3% for the
+defaults. [Search](results/tuning/ppo/report.md).
 
 ### 5. Evolution finds tiny solutions
 
@@ -153,7 +161,8 @@ All numbers come from logged runs with the exact commands, dates and hardware in
 - Gymnasium environment (`NeuroDrive-v0`) passing the Gymnasium and SB3 environment checkers
 - Reward designed against known exploits; `terminated` vs. `truncated` handled correctly
 - PPO and NEAT pipelines with seeds, checkpoints, resume, TensorBoard / statistics, and
-  checkpoint selection on a separate validation track
+  checkpoint selection on separate validation tracks; validation-only hyperparameter
+  search for PPO (`tune ppo`)
 - Train / validation / test track splits **enforced in code**
 
 **Evaluation**
@@ -170,6 +179,8 @@ All numbers come from logged runs with the exact commands, dates and hardware in
 - **Real multi-car races**: starting grid, cars see each other with their sensors and
   collide with momentum exchange; championship mode with F1 scoring
 - Optional traffic during training, so agents learn to race rather than only to lap
+- **Self-play**: opponent cars driven by earlier trained models (PPO or NEAT), in
+  training and in tests (`evaluate --opponents`)
 
 ## Play it in the browser
 
@@ -226,6 +237,8 @@ uv run python -m neurodrive play           # drive yourself: arrow keys / WASD
 | Evaluate on unseen tracks | `evaluate --model <model> --tracks "split:test,proc:20" --start random --split test` |
 | Run the full benchmark (~2 h, resumable) | `benchmark run --config configs/benchmark/default.yaml` |
 | Race any drivers | `race --real --driver <model or baseline> --driver ...` |
+| Race against learned opponents | `evaluate --model <model> --traffic 3 --opponents <folder of models>` |
+| Search PPO hyperparameters (resumable) | `tune ppo --trials 8 --seeds 0,1` |
 | Championship (rotated grids, F1 points) | `grand-prix --benchmark runs/benchmark/ppo_vs_neat_1m` |
 | See a run improve over training | `timeline runs/ppo/<run>` |
 | Learning time-lapse video | `timeline runs/neat/<run> --timelapse learning.mp4 --video-speed 4` |

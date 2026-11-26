@@ -1,0 +1,166 @@
+{
+  "tracks": [
+    "unseen_a",
+    "unseen_b",
+    "proc_0",
+    "proc_1",
+    "proc_2",
+    "proc_3",
+    "proc_4",
+    "proc_5",
+    "proc_6",
+    "proc_7",
+    "proc_8",
+    "proc_9"
+  ],
+  "laps": 2,
+  "drivers": [
+    "PPO solo",
+    "PPO traffic",
+    "NEAT solo",
+    "NEAT traffic",
+    "PPO self-play",
+    "NEAT self-play",
+    "autopilot",
+    "heuristic"
+  ],
+  "models": {
+    "PPO solo": "runs\\league\\holdout\\ppo_solo_s1.zip",
+    "PPO traffic": "runs\\league\\r1\\ppo_traffic_s1.zip",
+    "NEAT solo": "runs\\league\\holdout\\neat_solo_s1.pkl",
+    "NEAT traffic": "runs\\league\\r1\\neat_traffic_s1.pkl",
+    "PPO self-play": "runs\\selfplay\\ppo\\ppo_selfplay_seed1_20261126-152902\\best_model.zip",
+    "NEAT self-play": "runs\\selfplay\\neat\\neat_selfplay_seed1_20261126-141330\\best_model.pkl",
+    "autopilot": null,
+    "heuristic": null
+  },
+  "standings": [
+    {
+      "driver": "NEAT traffic",
+      "kind": "learned (NEAT)",
+      "points": 164,
+      "wins": 0,
+      "finished": 11,
+      "races": 12,
+      "mean_position": 3.3333333333333335,
+      "contacts": 17,
+      "outcomes": {
+        "collision": 1,
+        "finished": 11
+      }
+    },
+    {
+      "driver": "PPO self-play",
+      "kind": "learned (PPO)",
+      "points": 163,
+      "wins": 4,
+      "finished": 8,
+      "races": 12,
+      "mean_position": 3.5833333333333335,
+      "contacts": 16,
+      "outcomes": {
+        "collision": 4,
+        "finished": 8
+      }
+    },
+    {
+      "driver": "NEAT self-play",
+      "kind": "learned (NEAT)",
+      "points": 136,
+      "wins": 0,
+      "finished": 9,
+      "races": 12,
+      "mean_position": 3.8333333333333335,
+      "contacts": 19,
+      "outcomes": {
+        "finished": 9,
+        "collision": 3
+      }
+    },
+    {
+      "driver": "heuristic",
+      "kind": "scripted (sensors only)",
+      "points": 125,
+      "wins": 0,
+      "finished": 12,
+      "races": 12,
+      "mean_position": 4.833333333333333,
+      "contacts": 45,
+      "outcomes": {
+        "finished": 12
+      }
+    },
+    {
+      "driver": "autopilot",
+      "kind": "scripted (privileged)",
+      "points": 111,
+      "wins": 0,
+      "finished": 12,
+      "races": 12,
+      "mean_position": 5.416666666666667,
+      "contacts": 38,
+      "outcomes": {
+        "finished": 12
+      }
+    },
+    {
+      "driver": "PPO solo",
+      "kind": "learned (PPO)",
+      "points": 108,
+      "wins": 4,
+      "finished": 5,
+      "races": 12,
+      "mean_position": 4.75,
+      "contacts": 62,
+      "outcomes": {
+        "finished": 5,
+        "collision": 7
+      }
+    },
+    {
+      "driver": "NEAT solo",
+      "kind": "learned (NEAT)",
+      "points": 108,
+      "wins": 2,
+      "finished": 6,
+      "races": 12,
+      "mean_position": 5.25,
+      "contacts": 11,
+      "outcomes": {
+        "finished": 6,
+        "collision": 5,
+        "stalled": 1
+      }
+    },
+    {
+      "driver": "PPO traffic",
+      "kind": "learned (PPO)",
+      "points": 95,
+      "wins": 2,
+      "finished": 5,
+      "races": 12,
+      "mean_position": 5.0,
+      "contacts": 16,
+      "outcomes": {
+        "collision": 7,
+        "finished": 5
+      }
+    }
+  ],
+  "metadata": {
+    "created_utc": "2026-11-26T15:41:59+00:00",
+    "command": "D:\\Projects\\NeuroDrive-Lab\\src\\neurodrive\\__main__.py grand-prix --driver PPO solo=runs/league/holdout/ppo_solo_s1.zip --driver PPO traffic=runs/league/r1/ppo_traffic_s1.zip --driver NEAT solo=runs/league/holdout/neat_solo_s1.pkl --driver NEAT traffic=runs/league/r1/neat_traffic_s1.pkl --driver PPO self-play=runs/selfplay/ppo/ppo_selfplay_seed1_20261126-152902/best_model.zip --driver NEAT self-play=runs/selfplay/neat/neat_selfplay_seed1_20261126-141330/best_model.pkl --driver autopilot --driver heuristic --tracks split:test,proc:10 --laps 2 --out results/grand_prix/phase12/seed1",
+    "git_commit": "ca7b117c46a605b57833f3f1f0390b54d1d61068-dirty",
+    "python": "3.12.13",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "packages": {
+      "neurodrive-lab": "0.1.0",
+      "numpy": "2.5.5",
+      "gymnasium": "1.4.0",
+      "stable-baselines3": "2.9.2",
+      "torch": "2.15.0+cpu",
+      "pygame-ce": "2.5.8"
+    }
+  }
+}

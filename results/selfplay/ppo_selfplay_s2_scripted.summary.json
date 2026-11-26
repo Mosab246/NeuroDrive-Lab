@@ -1,0 +1,305 @@
+{
+  "summary": {
+    "controller": "ppo best@1000000",
+    "controller_kind": "ppo",
+    "track": "unseen_a",
+    "episodes": 440,
+    "completed": 436,
+    "completion_rate": 0.990909090909091,
+    "completion_rate_ci95": [
+      0.9768609493037662,
+      0.9964592622311598
+    ],
+    "collision_rate": 0.00909090909090909,
+    "termination_reasons": {
+      "lap_complete": 436,
+      "collision": 4
+    },
+    "lap_time_mean": 24.638570336391435,
+    "lap_time_std": 2.289406715943163,
+    "lap_time_best": 19.1,
+    "lap_time_n": 436,
+    "mean_lap_fraction": 0.9939398706309304,
+    "mean_episode_steps": 735.2886363636363,
+    "mean_speed": 22.438552713554433,
+    "mean_return": 63.363389506208094,
+    "mean_contacts": 1.915909090909091
+  },
+  "metadata": {
+    "created_utc": "2026-11-26T16:30:29+00:00",
+    "command": "D:\\Projects\\NeuroDrive-Lab\\src\\neurodrive\\__main__.py evaluate --tracks split:test,proc:20 --start random --split test --episodes 20 --traffic 3 --model runs/selfplay/ppo/ppo_selfplay_seed2_20261126-170436/best_model.zip --out runs/eval/phase12/ppo_selfplay_s2_scripted",
+    "git_commit": "ca7b117c46a605b57833f3f1f0390b54d1d61068-dirty",
+    "python": "3.12.13",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "packages": {
+      "neurodrive-lab": "0.1.0",
+      "numpy": "2.5.5",
+      "gymnasium": "1.4.0",
+      "stable-baselines3": "2.9.2",
+      "torch": "2.15.0+cpu",
+      "pygame-ce": "2.5.8"
+    },
+    "env_config": {
+      "track": "beginner_oval",
+      "tracks": [
+        "beginner_oval",
+        "curved_circuit",
+        "technical_circuit"
+      ],
+      "random_start": true,
+      "laps_to_finish": 1,
+      "max_episode_seconds": 90.0,
+      "perturb_start": true,
+      "physics": {
+        "model": "kinematic",
+        "tire_friction": 1.1
+      },
+      "traffic": {
+        "cars": 3,
+        "speed_range": [
+          0.35,
+          0.8
+        ],
+        "gap_range": [
+          12.0,
+          30.0
+        ],
+        "learned_opponents": [],
+        "learned_share": 1.0
+      },
+      "sensors": {
+        "angles_deg": [
+          -90.0,
+          -60.0,
+          -40.0,
+          -20.0,
+          0.0,
+          20.0,
+          40.0,
+          60.0,
+          90.0
+        ],
+        "max_range": 50.0
+      },
+      "observation": {
+        "route_features": false,
+        "motion_features": false
+      },
+      "reward": {
+        "progress_per_meter": 0.1,
+        "lap_bonus": 10.0,
+        "crash_penalty": 10.0,
+        "stall_penalty": 10.0,
+        "contact_penalty": 1.0,
+        "stall_seconds": 5.0,
+        "stall_min_progress": 2.0
+      }
+    },
+    "observation": {
+      "version": "obs-v1",
+      "names": [
+        "ray_-90",
+        "ray_-60",
+        "ray_-40",
+        "ray_-20",
+        "ray_+0",
+        "ray_+20",
+        "ray_+40",
+        "ray_+60",
+        "ray_+90",
+        "speed",
+        "steer"
+      ],
+      "low": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -1.0
+      ],
+      "high": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "privileged": []
+    },
+    "split": "test",
+    "tracks": [
+      "unseen_a",
+      "unseen_b",
+      "proc_0",
+      "proc_1",
+      "proc_2",
+      "proc_3",
+      "proc_4",
+      "proc_5",
+      "proc_6",
+      "proc_7",
+      "proc_8",
+      "proc_9",
+      "proc_10",
+      "proc_11",
+      "proc_12",
+      "proc_13",
+      "proc_14",
+      "proc_15",
+      "proc_16",
+      "proc_17",
+      "proc_18",
+      "proc_19"
+    ],
+    "random_start": true,
+    "scenario_seeds": [
+      2000000,
+      2000019
+    ],
+    "controller_seed": 0,
+    "model": "runs/selfplay/ppo/ppo_selfplay_seed2_20261126-170436/best_model.zip",
+    "model_meta": {
+      "algorithm": "ppo",
+      "label": "best@1000000",
+      "timesteps": 1000000,
+      "seed": 2,
+      "experiment": "ppo_selfplay",
+      "observation": {
+        "version": "obs-v1",
+        "names": [
+          "ray_-90",
+          "ray_-60",
+          "ray_-40",
+          "ray_-20",
+          "ray_+0",
+          "ray_+20",
+          "ray_+40",
+          "ray_+60",
+          "ray_+90",
+          "speed",
+          "steer"
+        ],
+        "low": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          -1.0
+        ],
+        "high": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "privileged": []
+      },
+      "env_config": {
+        "track": "beginner_oval",
+        "tracks": [
+          "beginner_oval",
+          "curved_circuit",
+          "technical_circuit"
+        ],
+        "random_start": true,
+        "laps_to_finish": 1,
+        "max_episode_seconds": 90.0,
+        "perturb_start": true,
+        "physics": {
+          "model": "kinematic",
+          "tire_friction": 1.1
+        },
+        "traffic": {
+          "cars": 3,
+          "speed_range": [
+            0.35,
+            0.8
+          ],
+          "gap_range": [
+            12.0,
+            30.0
+          ],
+          "learned_opponents": [
+            "runs/league/r1/ppo_traffic_s0.zip",
+            "runs/league/r1/ppo_traffic_s1.zip",
+            "runs/league/r1/ppo_traffic_s2.zip",
+            "runs/league/r1/neat_traffic_s0.pkl",
+            "runs/league/r1/neat_traffic_s1.pkl",
+            "runs/league/r1/neat_traffic_s2.pkl"
+          ],
+          "learned_share": 0.67
+        },
+        "sensors": {
+          "angles_deg": [
+            -90.0,
+            -60.0,
+            -40.0,
+            -20.0,
+            0.0,
+            20.0,
+            40.0,
+            60.0,
+            90.0
+          ],
+          "max_range": 50.0
+        },
+        "observation": {
+          "route_features": false,
+          "motion_features": false
+        },
+        "reward": {
+          "progress_per_meter": 0.1,
+          "lap_bonus": 10.0,
+          "crash_penalty": 10.0,
+          "stall_penalty": 10.0,
+          "contact_penalty": 1.0,
+          "stall_seconds": 5.0,
+          "stall_min_progress": 2.0
+        }
+      },
+      "ppo": {
+        "learning_rate": 0.000636,
+        "n_steps": 512,
+        "batch_size": 256,
+        "n_epochs": 10,
+        "gamma": 0.98,
+        "gae_lambda": 0.9,
+        "clip_range": 0.2,
+        "ent_coef": 0.01,
+        "vf_coef": 0.5,
+        "max_grad_norm": 0.5,
+        "net_arch": [
+          128,
+          128
+        ],
+        "log_std_init": 0.0
+      }
+    }
+  }
+}

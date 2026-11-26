@@ -1,0 +1,25 @@
+# Phase 12: does tuning help on the TEST tracks? Default vs tuned PPO hyperparameters, same
+# 1M-step budget, fresh seeds (3-5, never used in the search), same 7-track checkpoint selection.
+name: ppo_default_s345
+
+budget_env_steps: 1000000
+seeds: [3, 4, 5]
+algorithms: [ppo]
+
+ppo_config: configs/ppo/multitrack.yaml
+neat_config: configs/neat/multitrack.yaml
+
+ppo_overrides:
+  eval_every_steps: 50000
+  checkpoint_every_steps: 100000
+  eval_episodes: 5
+  validation_tracks: [validation_circuit, pval_0, pval_1, pval_2, beginner_oval, curved_circuit, technical_circuit]
+  torch_threads: 2
+
+baselines: []
+
+eval:
+  tracks: "beginner_oval,curved_circuit,technical_circuit,validation_circuit,unseen_a,unseen_b,proc:20"
+  episodes_per_track: 20
+  split: test
+  random_start: true

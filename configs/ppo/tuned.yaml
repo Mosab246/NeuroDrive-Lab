@@ -1,0 +1,37 @@
+# PPO on the three training tracks with TUNED hyperparameters (best of an 8-setting search,
+# 2 seeds each, scored on validation tracks only). Otherwise identical to multitrack.yaml,
+# except checkpoints are chosen on the 7-track validation set.
+name: ppo_tuned
+
+env:
+  tracks: [beginner_oval, curved_circuit, technical_circuit]   # split: train only
+  random_start: true
+  laps_to_finish: 1
+  max_episode_seconds: 90.0
+  perturb_start: true
+
+ppo:                     # tuned: trial tune_t07 of `neurodrive tune ppo` (docs/phases/phase-12.md)
+  learning_rate: 0.000636
+  n_steps: 512
+  batch_size: 256
+  n_epochs: 10
+  gamma: 0.98
+  gae_lambda: 0.9
+  clip_range: 0.2
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  net_arch: [128, 128]
+  log_std_init: 0.0
+
+training:
+  total_timesteps: 2000000
+  n_envs: 8
+  vec_env: subproc
+  seed: 0
+  device: cpu
+  torch_threads: 4       # leaves CPU for NEAT if both run at once
+  eval_every_steps: 100000
+  eval_episodes: 5       # per validation track
+  checkpoint_every_steps: 100000
+  validation_tracks: [validation_circuit, pval_0, pval_1, pval_2, beginner_oval, curved_circuit, technical_circuit]

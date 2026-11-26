@@ -3,6 +3,37 @@
 Only numbers that were actually measured go here, each with the exact command, the
 machine, and the date.
 
+## Self-play racing and PPO tuning (Phase 12)
+
+**Setup:** 2026-11-26, i9-13900HX laptop, CPU only; up to three jobs shared the CPU.
+Full write-up: [phases/phase-12.md](phases/phase-12.md).
+
+**PPO search** (`tune ppo --config configs/ppo/multitrack.yaml --trials 8 --seeds 0,1 --timesteps 1000000`;
+validation tracks only): best setting 90.6% worst-seed late validation laps vs. 84.5% for
+the defaults. [Report](../results/tuning/ppo/report.md).
+
+**Tuned vs. default on the test tracks** (`benchmark run --config configs/benchmark/ppo_{default,tuned}_s345.yaml`;
+seeds 3-5; 1M steps; 26 tracks x 20 scenarios): default 94.3% ± 4.4 laps, 22.28 s;
+tuned 94.8% ± 9.0, 21.74 s; first validation lap after 283k vs. 117k steps.
+
+**Self-play, 3 seeds** (22 test tracks x 20 scenarios, 3 opponents;
+`evaluate --traffic 3` and `evaluate --traffic 3 --opponents runs/league/holdout --learned-share 1.0`):
+
+| Driver | Scripted opponents | Learned opponents (held out) |
+|---|---|---|
+| PPO trained alone | 85.2%, 25.50 s | 82.3%, 23.09 s |
+| PPO trained with traffic | 93.0%, 23.82 s | 88.9%, 22.75 s |
+| PPO self-play (tuned) | 96.1%, 24.28 s | 95.3%, 22.73 s |
+| NEAT trained alone | 51.2%, 31.01 s | 90.9%, 22.90 s |
+| NEAT trained with traffic | 96.9%, 25.83 s | 95.9%, 25.01 s |
+| NEAT self-play | 98.6%, 27.25 s | 98.1%, 23.86 s |
+
+[summary.csv](../results/selfplay/summary.csv), [per_seed.csv](../results/selfplay/per_seed.csv).
+
+**8-car Grand Prix, one per seed** (12 races each, 2 laps), totals: PPO self-play 507, NEAT
+with traffic 483, PPO with traffic 443, NEAT self-play 397, heuristic 364, autopilot 322,
+PPO alone 294, NEAT alone 266. [Standings](../results/grand_prix/phase12/summary.md).
+
 ## Checkpoint re-selection and three-seed racing (Phase 10)
 
 **Setup:** 2026-11-25 to 2026-11-26, i9-13900HX laptop, CPU only; two training jobs shared

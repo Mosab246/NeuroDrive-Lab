@@ -1,0 +1,108 @@
+{
+  "config": {
+    "name": "ppo_tuned_s345",
+    "budget_env_steps": 1000000,
+    "seeds": [
+      3,
+      4,
+      5
+    ],
+    "algorithms": [
+      "ppo"
+    ],
+    "ppo_config": "configs/ppo/tuned.yaml",
+    "neat_config": "configs/neat/multitrack.yaml",
+    "ppo_overrides": {
+      "eval_every_steps": 50000,
+      "checkpoint_every_steps": 100000,
+      "eval_episodes": 5,
+      "validation_tracks": [
+        "validation_circuit",
+        "pval_0",
+        "pval_1",
+        "pval_2",
+        "beginner_oval",
+        "curved_circuit",
+        "technical_circuit"
+      ],
+      "torch_threads": 2
+    },
+    "neat_overrides": {},
+    "baselines": [],
+    "eval": {
+      "tracks": "beginner_oval,curved_circuit,technical_circuit,validation_circuit,unseen_a,unseen_b,proc:20",
+      "episodes_per_track": 20,
+      "split": "test",
+      "random_start": true
+    }
+  },
+  "aggregate": {
+    "ppo": {
+      "seeds": [
+        3,
+        4,
+        5
+      ],
+      "test_completion_rate": {
+        "mean": 0.9480769230769232,
+        "std": 0.08993340731607632,
+        "min": 0.8442307692307692,
+        "max": 1.0,
+        "n": 3
+      },
+      "test_lap_time_mean": {
+        "mean": 21.73866847244125,
+        "std": 0.4089402802067562,
+        "min": 21.266742596810932,
+        "max": 21.98865384615385,
+        "n": 3
+      },
+      "test_collision_rate": {
+        "mean": 0.051923076923076926,
+        "std": 0.08993340731607632,
+        "min": 0.0,
+        "max": 0.15576923076923077,
+        "n": 3
+      },
+      "train_wall_seconds": {
+        "mean": 1291.6000000000001,
+        "std": 435.3324706474352,
+        "min": 891.2,
+        "max": 1755.0,
+        "n": 3
+      },
+      "env_steps_used": {
+        "mean": 1003520.0,
+        "std": 0.0,
+        "min": 1003520.0,
+        "max": 1003520.0,
+        "n": 3
+      },
+      "steps_to_first_val_lap": {
+        "mean": 116666.66666666667,
+        "std": 28867.513459481288,
+        "min": 100000.0,
+        "max": 150000.0,
+        "n": 3
+      },
+      "steps_to_all_val_laps": {
+        "mean": 266666.6666666667,
+        "std": 76376.26158259733,
+        "min": 200000.0,
+        "max": 350000.0,
+        "n": 3
+      },
+      "pooled_completed": 1479,
+      "pooled_episodes": 1560,
+      "pooled_completion_ci95": [
+        0.9359245828290371,
+        0.9580278481588581
+      ]
+    }
+  },
+  "baselines": {},
+  "neat_faster_on_tracks": 0,
+  "tracks": 26,
+  "neat_faster_in_seed_pairings": 0,
+  "seed_pairings": 0
+}

@@ -102,7 +102,9 @@ def collect(results: Path) -> dict[str, Any]:
             for r in _csv(traffic)
         ]
         data["traffic_seeds"] = 3 if traffic == traffic3 else 1
-    files = sorted((results / "grand_prix" / "phase10").glob("seed*/standings.json"))
+    files = sorted((results / "grand_prix" / "phase12").glob("seed*/standings.json")) or sorted(
+        (results / "grand_prix" / "phase10").glob("seed*/standings.json")
+    )
     if not files and (results / "grand_prix" / "phase9" / "standings.json").is_file():
         files = [results / "grand_prix" / "phase9" / "standings.json"]
     if files:
