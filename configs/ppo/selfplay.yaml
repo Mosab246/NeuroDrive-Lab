@@ -1,0 +1,34 @@
+# PPO trained with SELF-PLAY: like traffic.yaml, but 2 of 3 opponents (on average) are
+# earlier LEARNED drivers (a league of PPO and NEAT models), driving at full pace;
+# the rest are scripted. Round 1 league = the Phase 10 traffic-trained models of all 3
+# seeds (copy them to runs/league/r1/ first: see docs/phases/phase-12.md).
+name: ppo_selfplay
+
+env:
+  tracks: [beginner_oval, curved_circuit, technical_circuit]   # split: train only
+  random_start: true
+  laps_to_finish: 1
+  max_episode_seconds: 90.0
+  perturb_start: true
+  traffic:
+    cars: 3
+    learned_opponents:            # round 1 league: the Phase 10 traffic-trained drivers
+      - runs/league/r1/ppo_traffic_s0.zip
+      - runs/league/r1/ppo_traffic_s1.zip
+      - runs/league/r1/ppo_traffic_s2.zip
+      - runs/league/r1/neat_traffic_s0.pkl
+      - runs/league/r1/neat_traffic_s1.pkl
+      - runs/league/r1/neat_traffic_s2.pkl
+    learned_share: 0.67           # each opponent: learned with p=2/3, else scripted
+
+training:
+  total_timesteps: 2000000
+  n_envs: 8
+  vec_env: subproc
+  seed: 0
+  device: cpu
+  torch_threads: 4       # leaves CPU for NEAT if both run at once
+  eval_every_steps: 100000
+  eval_episodes: 5       # per validation track
+  checkpoint_every_steps: 100000
+  validation_tracks: [validation_circuit, pval_0, pval_1, pval_2, beginner_oval, curved_circuit, technical_circuit]

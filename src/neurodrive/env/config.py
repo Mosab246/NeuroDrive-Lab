@@ -70,6 +70,18 @@ class TrafficConfig(_Strict):
     gap_range: tuple[float, float] = Field(
         default=(12.0, 30.0), description="Meters between consecutive cars at the start."
     )
+    learned_opponents: tuple[str, ...] = Field(
+        default=(),
+        description="Self-play: saved models (PPO .zip or NEAT .pkl) that may drive opponent "
+        "cars instead of the scripted autopilot. Each opponent is a learned driver with "
+        "probability `learned_share`, picked at random from this list, at full pace.",
+    )
+    learned_share: float = Field(
+        default=0.67,
+        ge=0.0,
+        le=1.0,
+        description="Share of opponents driven by a learned model (when any are listed).",
+    )
 
 
 class RewardConfig(_Strict):

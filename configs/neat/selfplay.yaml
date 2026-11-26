@@ -1,0 +1,36 @@
+# NEAT trained with SELF-PLAY: like traffic.yaml, but 2 of 3 opponents (on average) are
+# earlier LEARNED drivers (a league of PPO and NEAT models), driving at full pace;
+# the rest are scripted. Round 1 league = the Phase 10 traffic-trained models of all 3
+# seeds (copy them to runs/league/r1/ first: see docs/phases/phase-12.md).
+name: neat_selfplay
+
+env:
+  tracks: [beginner_oval, curved_circuit, technical_circuit]   # split: train only
+  random_start: true
+  laps_to_finish: 1
+  max_episode_seconds: 90.0
+  perturb_start: true
+  traffic:
+    cars: 3
+    learned_opponents:            # round 1 league: the Phase 10 traffic-trained drivers
+      - runs/league/r1/ppo_traffic_s0.zip
+      - runs/league/r1/ppo_traffic_s1.zip
+      - runs/league/r1/ppo_traffic_s2.zip
+      - runs/league/r1/neat_traffic_s0.pkl
+      - runs/league/r1/neat_traffic_s1.pkl
+      - runs/league/r1/neat_traffic_s2.pkl
+    learned_share: 0.67           # each opponent: learned with p=2/3, else scripted
+
+neat:
+  neat_config: configs/neat/multitrack.ini
+  pop_size: 150
+  generations: 60
+  max_env_steps: null
+  scenarios_per_genome: 1     # per track, so 3 episodes per genome per generation
+  speed_weight: 1.0
+  seed: 0
+  workers: 8
+  validate_every: 5
+  validation_episodes: 5
+  checkpoint_every: 10
+  validation_tracks: [validation_circuit, pval_0, pval_1, pval_2, beginner_oval, curved_circuit, technical_circuit]

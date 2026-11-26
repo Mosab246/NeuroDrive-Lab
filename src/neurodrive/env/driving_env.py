@@ -75,7 +75,8 @@ class DrivingEnv(gym.Env[np.ndarray, np.ndarray]):
         self._episode_return = 0.0
         self._renderer: Any = None
         self._opponents: dict[str, list[Simulation]] = {}
-        self._opponent_drivers: list[PurePursuitDriver] = []
+        self._opponent_drivers: list[Any] = []
+        self._learned: dict[tuple[str, int, str], Any] = {}
         self.race: RaceWorld | None = None
         #: Other cars near the agent (corner arrays) as of the last observation; set in
         #: traffic, or by a race that drives this environment's car.
@@ -144,16 +145,32 @@ class DrivingEnv(gym.Env[np.ndarray, np.ndarray]):
         max_lateral = max(0.0, min(2.5, float(track.half_width.min()) - 1.5))
         s = self.sim.start_s
         self._opponent_drivers = []
-        for opp, gap in zip(opponents, gaps, strict=True):
+        for k, (opp, gap) in enumerate(zip(opponents, gaps, strict=True)):
             s += float(gap)
             opp.place(s, float(rng.uniform(-1.0, 1.0)) * max_lateral)
             pace = float(rng.uniform(*cfg.speed_range))
-            self._opponent_drivers.append(
-                PurePursuitDriver(speed_margin=pace, dynamic_grip_share=0.625 * pace)
-            )
+            if cfg.learned_opponents and rng.uniform() < cfg.learned_share:
+                path = cfg.learned_opponents[int(rng.integers(len(cfg.learned_opponents)))]
+                self._opponent_drivers.append(self._learned_driver(path, k))
+            else:
+                self._opponent_drivers.append(
+                    PurePursuitDriver(speed_margin=pace, dynamic_grip_share=0.625 * pace)
+                )
         world = RaceWorld([self.sim, *opponents], stall_exempt=(0,))
         world.start()
         return world
+
+    def _learned_driver(self, path: str, k: int) -> Any:
+        """A model-driven opponent for opponent car ``k`` (built once, then reused)."""
+        key = (self.track.id, k, path)
+        if key not in self._learned:
+            from neurodrive.agents.learned_opponent import LearnedDriver, check_opponent
+
+            check_opponent(path, self.config)
+            self._learned[key] = LearnedDriver(path, self._opponents[self.track.id][k])
+        driver = self._learned[key]
+        driver.controller.reset(0)
+        return driver
 
     def _obstacles(self) -> list[np.ndarray] | None:
         self.obstacles = self.race.obstacles_for(0) if self.race is not None else None

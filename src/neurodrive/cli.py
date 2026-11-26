@@ -213,6 +213,22 @@ def make_controller(name: str, env: DrivingEnv, seed: int) -> Controller:
     raise ValueError(f"unknown controller '{name}' (choose from {', '.join(CONTROLLERS)})")
 
 
+def _model_list(spec: str | None) -> list[str]:
+    """Comma-separated model files and folders (a folder = every .zip/.pkl model in it)."""
+    out: list[str] = []
+    for part in (spec or "").split(","):
+        if not part.strip():
+            continue
+        p = Path(part.strip())
+        if p.is_dir():
+            out += sorted(str(f) for f in p.iterdir() if f.suffix in (".zip", ".pkl"))
+        elif p.is_file():
+            out.append(str(p))
+        else:
+            raise ValueError(f"opponent model not found: {p}")
+    return out
+
+
 def _cmd_evaluate(args: argparse.Namespace) -> int:
     from neurodrive.env.config import EnvConfig, load_env_config
     from neurodrive.env.driving_env import DrivingEnv
@@ -234,8 +250,16 @@ def _cmd_evaluate(args: argparse.Namespace) -> int:
         config = load_env_config(args.config) if args.config else EnvConfig()
     if args.track:
         config = config.model_copy(update={"track": args.track, "tracks": None})
-    if args.traffic is not None:
-        traffic = config.traffic.model_copy(update={"cars": args.traffic})
+    if args.traffic is not None or args.opponents is not None:
+        # Opponents are part of the test, not of the model: a self-play model's own training
+        # league is never carried into its evaluation. Scripted unless --opponents is given.
+        update: dict[str, object] = {
+            "learned_opponents": tuple(_model_list(args.opponents)),
+            "learned_share": args.learned_share,
+        }
+        if args.traffic is not None:
+            update["cars"] = args.traffic
+        traffic = config.traffic.model_copy(update=update)
         config = config.model_copy(update={"traffic": traffic})
     track_list = expand_tracks(args.tracks) if args.tracks else None
     random_start = {"random": True, "line": False}.get(args.start or "")
@@ -573,6 +597,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ev.add_argument(
         "--traffic", type=int, default=None, help="opponent cars on track (default: config)"
+    )
+    ev.add_argument(
+        "--opponents",
+        default=None,
+        help="learned opponents: model files or a folder of them (self-play test); "
+        "default scripted",
+    )
+    ev.add_argument(
+        "--learned-share", type=float, default=1.0, help="share of opponents that are learned"
     )
     ev.add_argument("--split", choices=["validation", "test"], default="validation")
     ev.add_argument("--episodes", type=int, default=50)
