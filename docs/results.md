@@ -3,6 +3,33 @@
 Only numbers that were actually measured go here, each with the exact command, the
 machine, and the date.
 
+## Checkpoint re-selection and three-seed racing (Phase 10)
+
+**Setup:** 2026-11-25 to 2026-11-26, i9-13900HX laptop, CPU only; two training jobs shared
+the CPU. Full write-up: [phases/phase-10.md](phases/phase-10.md).
+
+**Re-selection on 7 validation tracks** (`benchmark reselect --dir ...`; no retraining):
+PPO 92.6% to 97.6% of laps at 1M, 87.8% to 96.9% at 5M; NEAT 98.5% to 98.8% and 100% to
+100%. [1M](../results/benchmark/ppo_vs_neat_1m/reselection.md),
+[5M](../results/benchmark/ppo_vs_neat_5m/reselection.md).
+
+**Traffic, 3 seeds** (22 test tracks x 20 scenarios per model; `evaluate --model M --tracks split:test,proc:20 --start random --split test --episodes 20 --traffic 0|3`):
+
+| Driver | Alone | With 3 opponents | Hits per episode in traffic |
+|---|---|---|---|
+| PPO trained alone | 93.1%, 22.47 s | 85.2%, 25.50 s | 2.98 |
+| PPO trained with traffic | 96.5%, 22.05 s | 93.0%, 23.82 s | 1.61 |
+| NEAT trained alone | 98.6%, 21.67 s | 51.2%, 31.01 s | 0.48 |
+| NEAT trained with traffic | 97.3%, 24.59 s | 96.9%, 25.83 s | 0.88 |
+
+[summary.csv](../results/traffic/phase10/summary.csv),
+[per_seed.csv](../results/traffic/phase10/per_seed.csv).
+
+**Grand Prix, one per seed** (12 races each, 2 laps, grid rotated, F1 points), totals:
+NEAT trained with traffic 575, PPO trained with traffic 527, PPO trained alone 512,
+heuristic 431, autopilot 418, NEAT trained alone 341.
+[Standings](../results/grand_prix/phase10/summary.md).
+
 ## Longer training, hard physics and racing (Phase 9)
 
 **Setup:** 2026-11-25 to 2026-11-26, i9-13900HX laptop, CPU only. Up to four jobs shared

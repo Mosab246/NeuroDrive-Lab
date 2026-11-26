@@ -37,7 +37,7 @@ a replay viewer to see what the numbers mean.
 | **Agent outputs** | Steering and throttle/brake, continuous in [-1, 1] |
 | **Tracks** | 6 hand-built (train / validation / test, both directions) + unlimited procedural |
 | **Evaluation** | 26 tracks x 20 fixed scenarios with random starts, 3 seeds per algorithm |
-| **Quality** | 232 automated tests, CI on Windows and Linux, fully reproducible runs |
+| **Quality** | 246 automated tests, CI on Windows and Linux, fully reproducible runs |
 
 ## Key results
 
@@ -106,18 +106,21 @@ agents adapt. [Report](results/benchmark/ppo_vs_neat_dynamic_3m/report.md).
 ### 4. Racing: two very different driving styles
 
 In real races (cars see each other with their sensors and collide), the two algorithms
-behave differently. Tested on 22 tracks with 3 opponents:
+behave differently. Tested on 22 tracks with 3 opponents, 3 seeds per model:
 
-| Driver | Laps completed | Hits on other cars per race |
-|---|---|---|
-| PPO | 99.5% | 2.59 |
-| NEAT | 42.5% | 0.24 |
-| NEAT trained with traffic | 52.7% | 0.08 |
+| Driver | Laps completed, alone | Laps completed, 3 opponents | Hits on other cars per race |
+|---|---|---|---|
+| PPO trained alone | 93.1% | 85.2% | 2.98 |
+| PPO trained with traffic | 96.5% | 93.0% | 1.61 |
+| NEAT trained alone | **98.6%** | 51.2% | 0.48 |
+| NEAT trained with traffic | 97.3% | **96.9%** | 0.88 |
 
-PPO bumps its way through traffic; NEAT avoids other cars almost perfectly but swerves into
-the wall to do so. Training with opponents on track helps NEAT most: in a 12-race
-championship (rotated grids, F1 scoring) it went from last place to first, 2 points ahead
-of PPO. [Standings](results/grand_prix/phase9/standings.md).
+PPO bumps its way through traffic; NEAT trained alone avoids other cars but swerves into
+the wall to do so, losing half its laps. Trained with opponents on track, NEAT barely
+notices them. In three 12-race championships (one per seed, rotated grids, F1 scoring),
+NEAT trained with traffic finished 33 of 36 races and won on points (575, vs. 527 and
+512 for the PPO drivers); PPO won the most races but crashed out of a third.
+[Standings](results/grand_prix/phase10/summary.md).
 
 ### 5. Evolution finds tiny solutions
 

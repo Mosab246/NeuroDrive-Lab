@@ -1,0 +1,305 @@
+{
+  "summary": {
+    "controller": "neat best@gen59",
+    "controller_kind": "neat",
+    "track": "unseen_a",
+    "episodes": 440,
+    "completed": 440,
+    "completion_rate": 1.0,
+    "completion_rate_ci95": [
+      0.9913446598966839,
+      0.9999999999999999
+    ],
+    "collision_rate": 0.0,
+    "termination_reasons": {
+      "lap_complete": 440
+    },
+    "lap_time_mean": 21.811098484848486,
+    "lap_time_std": 1.5109437716677987,
+    "lap_time_best": 17.983333333333334,
+    "lap_time_n": 440,
+    "mean_lap_fraction": 1.0,
+    "mean_episode_steps": 654.5909090909091,
+    "mean_speed": 25.15782818993078,
+    "mean_return": 65.79979030224216,
+    "mean_contacts": 0.0
+  },
+  "metadata": {
+    "created_utc": "2026-11-26T04:46:51+00:00",
+    "command": "D:\\Projects\\NeuroDrive-Lab\\src\\neurodrive\\__main__.py evaluate --model runs/seeds/neat/neat_multitrack_seed1_20261126-032121/best_model.pkl --tracks split:test,proc:20 --start random --split test --episodes 20 --traffic 0 --out runs/eval/phase10/neat_solo_s1_alone",
+    "git_commit": "654709414b6f7ab9ede670871c70578161448591",
+    "python": "3.12.13",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "packages": {
+      "neurodrive-lab": "0.1.0",
+      "numpy": "2.5.5",
+      "gymnasium": "1.4.0",
+      "stable-baselines3": "2.9.2",
+      "torch": "2.15.0+cpu",
+      "pygame-ce": "2.5.8"
+    },
+    "env_config": {
+      "track": "beginner_oval",
+      "tracks": [
+        "beginner_oval",
+        "curved_circuit",
+        "technical_circuit"
+      ],
+      "random_start": true,
+      "laps_to_finish": 1,
+      "max_episode_seconds": 90.0,
+      "perturb_start": true,
+      "physics": {
+        "model": "kinematic",
+        "tire_friction": 1.1
+      },
+      "traffic": {
+        "cars": 0,
+        "speed_range": [
+          0.35,
+          0.8
+        ],
+        "gap_range": [
+          12.0,
+          30.0
+        ]
+      },
+      "sensors": {
+        "angles_deg": [
+          -90.0,
+          -60.0,
+          -40.0,
+          -20.0,
+          0.0,
+          20.0,
+          40.0,
+          60.0,
+          90.0
+        ],
+        "max_range": 50.0
+      },
+      "observation": {
+        "route_features": false,
+        "motion_features": false
+      },
+      "reward": {
+        "progress_per_meter": 0.1,
+        "lap_bonus": 10.0,
+        "crash_penalty": 10.0,
+        "stall_penalty": 10.0,
+        "contact_penalty": 1.0,
+        "stall_seconds": 5.0,
+        "stall_min_progress": 2.0
+      }
+    },
+    "observation": {
+      "version": "obs-v1",
+      "names": [
+        "ray_-90",
+        "ray_-60",
+        "ray_-40",
+        "ray_-20",
+        "ray_+0",
+        "ray_+20",
+        "ray_+40",
+        "ray_+60",
+        "ray_+90",
+        "speed",
+        "steer"
+      ],
+      "low": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -1.0
+      ],
+      "high": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "privileged": []
+    },
+    "split": "test",
+    "tracks": [
+      "unseen_a",
+      "unseen_b",
+      "proc_0",
+      "proc_1",
+      "proc_2",
+      "proc_3",
+      "proc_4",
+      "proc_5",
+      "proc_6",
+      "proc_7",
+      "proc_8",
+      "proc_9",
+      "proc_10",
+      "proc_11",
+      "proc_12",
+      "proc_13",
+      "proc_14",
+      "proc_15",
+      "proc_16",
+      "proc_17",
+      "proc_18",
+      "proc_19"
+    ],
+    "random_start": true,
+    "scenario_seeds": [
+      2000000,
+      2000019
+    ],
+    "controller_seed": 0,
+    "model": "runs/seeds/neat/neat_multitrack_seed1_20261126-032121/best_model.pkl",
+    "model_meta": {
+      "label": "best@gen59",
+      "generation": 59,
+      "env_steps_total": 12342309,
+      "seed": 1,
+      "experiment": "neat_multitrack",
+      "observation": {
+        "version": "obs-v1",
+        "names": [
+          "ray_-90",
+          "ray_-60",
+          "ray_-40",
+          "ray_-20",
+          "ray_+0",
+          "ray_+20",
+          "ray_+40",
+          "ray_+60",
+          "ray_+90",
+          "speed",
+          "steer"
+        ],
+        "low": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          -1.0
+        ],
+        "high": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "privileged": []
+      },
+      "env_config": {
+        "track": "beginner_oval",
+        "tracks": [
+          "beginner_oval",
+          "curved_circuit",
+          "technical_circuit"
+        ],
+        "random_start": true,
+        "laps_to_finish": 1,
+        "max_episode_seconds": 90.0,
+        "perturb_start": true,
+        "physics": {
+          "model": "kinematic",
+          "tire_friction": 1.1
+        },
+        "traffic": {
+          "cars": 0,
+          "speed_range": [
+            0.35,
+            0.8
+          ],
+          "gap_range": [
+            12.0,
+            30.0
+          ]
+        },
+        "sensors": {
+          "angles_deg": [
+            -90.0,
+            -60.0,
+            -40.0,
+            -20.0,
+            0.0,
+            20.0,
+            40.0,
+            60.0,
+            90.0
+          ],
+          "max_range": 50.0
+        },
+        "observation": {
+          "route_features": false,
+          "motion_features": false
+        },
+        "reward": {
+          "progress_per_meter": 0.1,
+          "lap_bonus": 10.0,
+          "crash_penalty": 10.0,
+          "stall_penalty": 10.0,
+          "contact_penalty": 1.0,
+          "stall_seconds": 5.0,
+          "stall_min_progress": 2.0
+        }
+      },
+      "fitness": {
+        "speed_weight": 1.0
+      },
+      "validation": {
+        "controller": "neat gen59",
+        "controller_kind": "neat",
+        "track": "validation_circuit",
+        "episodes": 35,
+        "completed": 35,
+        "completion_rate": 1.0,
+        "completion_rate_ci95": [
+          0.9010957324106112,
+          1.0
+        ],
+        "collision_rate": 0.0,
+        "termination_reasons": {
+          "lap_complete": 35
+        },
+        "lap_time_mean": 22.24095238095238,
+        "lap_time_std": 1.4773029150768273,
+        "lap_time_best": 19.75,
+        "lap_time_n": 35,
+        "mean_lap_fraction": 1.0,
+        "mean_episode_steps": 667.4571428571429,
+        "mean_speed": 25.11208570431788,
+        "mean_return": 66.72138463997372,
+        "mean_contacts": 0.0
+      },
+      "algorithm": "neat"
+    }
+  }
+}

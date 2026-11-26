@@ -86,31 +86,41 @@ def collect(results: Path) -> dict[str, Any]:
                 "baselines": baselines,
             }
         )
-    traffic = results / "traffic" / "summary.csv"
+    # Prefer the three-seed results (Phase 10); fall back to the one-seed files (Phase 9).
+    traffic3 = results / "traffic" / "phase10" / "summary.csv"
+    traffic = traffic3 if traffic3.is_file() else results / "traffic" / "summary.csv"
     if traffic.is_file():
+        sfx = "_mean" if traffic == traffic3 else ""
         data["traffic"] = [
             {
                 "driver": r["driver"],
-                "alone": _num(r["alone_rate"]),
-                "traffic": _num(r["traffic3_rate"]),
+                "alone": _num(r["alone_rate" + sfx]),
+                "traffic": _num(r["traffic3_rate" + sfx]),
                 "hits": _num(r["traffic3_hits"]),
                 "lap_time_traffic": _num(r["traffic3_lap_time"]),
             }
             for r in _csv(traffic)
         ]
-    gp = results / "grand_prix" / "phase9" / "standings.json"
-    if gp.is_file():
-        s = json.loads(gp.read_text(encoding="utf-8"))
+        data["traffic_seeds"] = 3 if traffic == traffic3 else 1
+    files = sorted((results / "grand_prix" / "phase10").glob("seed*/standings.json"))
+    if not files and (results / "grand_prix" / "phase9" / "standings.json").is_file():
+        files = [results / "grand_prix" / "phase9" / "standings.json"]
+    if files:
+        events = [json.loads(f.read_text(encoding="utf-8")) for f in files]
+        keys = ("points", "wins", "finished", "races", "contacts")
+        table: dict[str, dict[str, Any]] = {}
+        for ev in events:
+            for t in ev["standings"]:
+                row = table.setdefault(
+                    t["driver"], {"driver": t["driver"], "kind": t["kind"]} | dict.fromkeys(keys, 0)
+                )
+                for k in keys:
+                    row[k] += t[k]
         data["grand_prix"] = {
-            "races": len(s["tracks"]),
-            "laps": s["laps"],
-            "standings": [
-                {
-                    k: t[k]
-                    for k in ("driver", "kind", "points", "wins", "finished", "races", "contacts")
-                }
-                for t in s["standings"]
-            ],
+            "races": len(events[0]["tracks"]),
+            "laps": events[0]["laps"],
+            "seeds": len(events),
+            "standings": sorted(table.values(), key=lambda r: -r["points"]),
         }
     return data
 
@@ -226,7 +236,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   </div>
 
   <h2>Racing with traffic</h2>
-  <p class="note">22 test tracks x 20 scenarios with 3 opponent cars on track (one seed per model).</p>
+  <p class="note">22 test tracks x 20 scenarios with 3 opponent cars on track. <span id="traffic-seeds"></span></p>
   <div class="card">
     <div class="legend"><span><i style="background:var(--ppo)"></i>PPO</span><span><i style="background:var(--neat)"></i>NEAT</span></div>
     <div id="traffic-chart"></div>
@@ -390,6 +400,8 @@ function tracksChart() {
 // ---------------------------------------------------------------- traffic
 function trafficChart() {
   const rows = DATA.traffic || [];
+  const ts = document.getElementById("traffic-seeds");
+  if (ts) ts.textContent = DATA.traffic_seeds > 1 ? `Mean over ${DATA.traffic_seeds} seeds per model.` : `One seed per model.`;
   if (!rows.length) return;
   const W = 1040, rowH = 46, m = {l: 210, r: 190, t: 24, b: 30}, H = m.t + m.b + rowH * rows.length;
   const hitsX = W - 70;
@@ -422,7 +434,7 @@ function trafficChart() {
 function gpChart() {
   const g = DATA.grand_prix;
   if (!g) return;
-  document.getElementById("gp-note").textContent = `${g.races} races, ${g.laps} laps each, grid rotated every race, F1 points (25, 18, 15, ...). One seed per model.`;
+  document.getElementById("gp-note").textContent = `${g.races} races, ${g.laps} laps each, grid rotated every race, F1 points (25, 18, 15, ...). ` + (g.seeds > 1 ? `Totals over ${g.seeds} championships, one per training seed.` : `One seed per model.`);
   const rows = g.standings, max = Math.max(...rows.map(r => r.points));
   const W = 1040, rowH = 30, m = {l: 210, r: 60, t: 8, b: 8}, H = m.t + m.b + rowH * rows.length;
   const svg = el("svg", {viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Grand Prix points"});
