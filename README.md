@@ -217,6 +217,7 @@ uv run python -m neurodrive play           # drive yourself: arrow keys / WASD
 | Race any drivers | `race --real --driver <model or baseline> --driver ...` |
 | Championship (rotated grids, F1 points) | `grand-prix --benchmark runs/benchmark/ppo_vs_neat_1m` |
 | See a run improve over training | `timeline runs/ppo/<run>` |
+| Learning time-lapse video | `timeline runs/neat/<run> --timelapse learning.mp4 --video-speed 4` |
 | Draw an evolved network | `show-network runs/neat/<run>/best_model.pkl` |
 
 `demo` uses the benchmark models in `runs/benchmark/` (generated, not committed); without

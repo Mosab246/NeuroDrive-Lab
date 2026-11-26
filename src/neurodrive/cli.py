@@ -402,7 +402,31 @@ def _cmd_timeline(args: argparse.Namespace) -> int:
     from neurodrive.replay.lab import timeline_entries
 
     entries = timeline_entries(args.run, args.count)
+    if args.timelapse:
+        return _timelapse(_record(entries, args), args)
     return _show_replays(_record(entries, args), "Learning timeline", args)
+
+
+def _timelapse(replays: list, args: argparse.Namespace) -> int:
+    """Each snapshot on its own, one after another, captioned: how the driver improved."""
+    import os
+
+    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+    from neurodrive.ui.replay_viewer import ReplayViewer
+    from neurodrive.ui.video import export_timelapse
+
+    clips = []
+    for rep in replays:
+        end = rep.meta["termination_reason"]
+        if end == "lap_complete":
+            result = f"lap in {rep.meta['lap_times'][0]:.2f} s"
+        else:
+            result = f"{end.replace('_', ' ')} after {rep.duration:.1f} s"
+        viewer = ReplayViewer([rep], title="Learning time-lapse", size=(args.width, args.height))
+        viewer.camera_mode = args.camera
+        clips.append((viewer, f"{rep.label}: {result}"))
+    export_timelapse(clips, args.timelapse, fps=args.fps, speed=args.video_speed)
+    return 0
 
 
 def _cmd_demo(args: argparse.Namespace) -> int:
@@ -593,6 +617,9 @@ def build_parser() -> argparse.ArgumentParser:
     tl = sub.add_parser("timeline", help="race snapshots of one training run against each other")
     tl.add_argument("run", help="a PPO or NEAT run folder")
     tl.add_argument("--count", type=int, default=6, help="how many snapshots (default 6)")
+    tl.add_argument(
+        "--timelapse", default=None, help="write an MP4 playing the snapshots one after another"
+    )
     viewer_args(tl)
     tl.set_defaults(func=_cmd_timeline)
 

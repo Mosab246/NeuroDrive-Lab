@@ -147,3 +147,17 @@ def test_video_export(replays, tmp_path):
     out = export_video(viewer, tmp_path / "clip.mp4", fps=10, speed=8.0, hold_end_s=0.2,
                        log=lambda _: None)  # fmt: skip
     assert out.stat().st_size > 10_000
+
+
+def test_timelapse_export(replays, tmp_path):
+    import shutil
+
+    from neurodrive.ui.video import export_timelapse
+
+    if shutil.which("ffmpeg") is None:
+        pytest.skip("ffmpeg not installed")
+    clips = [(ReplayViewer([r], frame_dt=1 / 60), r.label) for r in replays[:2]]
+    out = export_timelapse(clips, tmp_path / "tl.mp4", fps=10, speed=8.0, hold_s=0.1,
+                           log=lambda _: None)  # fmt: skip
+    assert out.stat().st_size > 10_000
+    assert clips[0][0].caption == replays[0].label

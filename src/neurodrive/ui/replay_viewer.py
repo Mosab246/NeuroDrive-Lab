@@ -151,6 +151,7 @@ class ReplayViewer:
         self.show_network = False
         self.show_trails = True
         self.show_effects = True  # skid marks and tyre smoke (E)
+        self.caption: str | None = None  # big banner text (time-lapse videos)
         self.frame_dt = frame_dt
         self.fps = fps
         self.measured_fps = 0.0
@@ -331,8 +332,17 @@ class ReplayViewer:
             self._draw_start_lights()
         if self.show_network:
             self._draw_network()
+        if self.caption:
+            self._draw_caption()
         self._draw_panel()
         self._draw_bar()
+
+    def _draw_caption(self) -> None:
+        view = self.track_view.viewport
+        img = self.font_big.render(self.caption or "", True, R.TEXT)
+        box = img.get_rect(midtop=(view.centerx, view.top + 18)).inflate(28, 14)
+        pygame.draw.rect(self.screen, R.PANEL, box, border_radius=8)
+        self.screen.blit(img, img.get_rect(center=box.center))
 
     def _draw_start_lights(self) -> None:
         """Five red lights come on one by one; all go out at time 0 (the race starts)."""
