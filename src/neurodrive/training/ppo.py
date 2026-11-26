@@ -1,6 +1,9 @@
-"""Train PPO (Stable-Baselines3) on the driving environment.
+"""Train PPO or SAC (Stable-Baselines3) on the driving environment.
 
-A run directory ``runs/ppo/<name>_seed<seed>_<timestamp>/`` holds everything:
+Both share everything except the algorithm itself: environments, checkpoints, validation,
+best-model selection and metadata, so the two are trained and judged identically.
+
+A run directory ``runs/<algo>/<name>_seed<seed>_<timestamp>/`` holds everything:
 
 ==========================  ============================================================
 ``config.yaml``             the exact experiment config used
@@ -32,7 +35,7 @@ from typing import Any
 import numpy as np
 import torch
 import yaml
-from stable_baselines3 import PPO
+from stable_baselines3 import PPO, SAC
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.utils import set_random_seed
@@ -45,7 +48,14 @@ from neurodrive.evaluation.metrics import selection_key, summarize
 from neurodrive.evaluation.scenarios import scenario_seeds
 from neurodrive.experiments.metadata import run_metadata
 from neurodrive.experiments.splits import check_track_splits
-from neurodrive.training.config import PPOExperiment
+from neurodrive.training.config import PPOExperiment, SACExperiment
+
+Experiment = PPOExperiment | SACExperiment
+
+
+def algorithm_of(exp: Experiment) -> str:
+    return "sac" if isinstance(exp, SACExperiment) else "ppo"
+
 
 EVAL_FIELDS = (
     "timesteps",
@@ -60,7 +70,7 @@ EVAL_FIELDS = (
 )
 
 
-def _make_env(exp: PPOExperiment) -> DrivingEnv:
+def _make_env(exp: Experiment) -> DrivingEnv:
     return DrivingEnv(exp.env)
 
 
@@ -100,9 +110,10 @@ class EvalAndCheckpointCallback(BaseCallback):
     """Every N steps: save a checkpoint; every M steps: evaluate the deterministic policy
     on the fixed validation scenarios and keep the best model."""
 
-    def __init__(self, exp: PPOExperiment, run_dir: Path, obs_spec: dict[str, Any]) -> None:
+    def __init__(self, exp: Experiment, run_dir: Path, obs_spec: dict[str, Any]) -> None:
         super().__init__()
         self.exp = exp
+        self.algo = algorithm_of(exp)
         self.run_dir = run_dir
         self.ckpt_dir = run_dir / "checkpoints"
         self.ckpt_dir.mkdir(parents=True, exist_ok=True)
@@ -123,14 +134,14 @@ class EvalAndCheckpointCallback(BaseCallback):
 
     def _meta(self, label: str) -> dict[str, Any]:
         return {
-            "algorithm": "ppo",
+            "algorithm": self.algo,
             "label": label,
             "timesteps": int(self.num_timesteps),
             "seed": self.exp.training.seed,
             "experiment": self.exp.name,
             "observation": self.obs_spec,
             "env_config": self.exp.env.model_dump(mode="json"),
-            "ppo": self.exp.ppo.model_dump(mode="json"),
+            self.algo: getattr(self.exp, self.algo).model_dump(mode="json"),
         }
 
     def save(self, path: Path, label: str) -> None:
@@ -168,7 +179,13 @@ class EvalAndCheckpointCallback(BaseCallback):
 
     def _evaluate(self, step: int) -> None:
         self.last_eval_step = step
-        controller = PPOController(self.model, name=f"ppo@{step}", meta={})
+        controller: Any
+        if self.algo == "sac":
+            from neurodrive.agents.sac_agent import SACController
+
+            controller = SACController(self.model, name=f"sac@{step}", meta={})
+        else:
+            controller = PPOController(self.model, name=f"ppo@{step}", meta={})
         summary: dict[str, Any] = summarize(
             evaluate(self.eval_env, controller, self.seeds, tracks=self.val_tracks)
         )
@@ -201,7 +218,7 @@ class EvalAndCheckpointCallback(BaseCallback):
             self.save(self.run_dir / "best_model", f"best@{step}")
 
 
-def make_run_dir(exp: PPOExperiment, root: Path) -> Path:
+def make_run_dir(exp: Experiment, root: Path) -> Path:
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir = root / f"{exp.name}_seed{exp.training.seed}_{stamp}"
     run_dir.mkdir(parents=True, exist_ok=False)
@@ -209,12 +226,14 @@ def make_run_dir(exp: PPOExperiment, root: Path) -> Path:
 
 
 def train_ppo(
-    exp: PPOExperiment,
-    runs_root: Path = Path("runs/ppo"),
+    exp: Experiment,
+    runs_root: Path | None = None,
     resume_from: Path | None = None,
     log: Callable[[str], None] = print,
 ) -> Path:
-    """Train according to ``exp``; returns the run directory."""
+    """Train according to ``exp`` (PPO or SAC); returns the run directory."""
+    algo = algorithm_of(exp)
+    runs_root = Path(runs_root) if runs_root is not None else Path("runs") / algo
     t = exp.training
     check_track_splits(exp.env, t.validation_tracks)
     if t.torch_threads is not None:
@@ -245,10 +264,31 @@ def train_ppo(
     obs_spec = DrivingEnv(exp.env).obs_builder.spec.to_dict()
 
     if resume_from is not None:
-        model = PPO.load(
+        model = (SAC if algo == "sac" else PPO).load(
             resume_from, env=venv, device=t.device, tensorboard_log=str(run_dir / "tb")
         )
         log(f"resuming {resume_from} at {model.num_timesteps:,} steps")
+    elif isinstance(exp, SACExperiment):
+        h = exp.sac
+        ent: str | float = h.ent_coef if h.ent_coef.startswith("auto") else float(h.ent_coef)
+        model = SAC(
+            "MlpPolicy",
+            venv,
+            learning_rate=h.learning_rate,
+            buffer_size=h.buffer_size,
+            learning_starts=h.learning_starts,
+            batch_size=h.batch_size,
+            tau=h.tau,
+            gamma=h.gamma,
+            train_freq=h.train_freq,
+            gradient_steps=h.gradient_steps,
+            ent_coef=ent,
+            policy_kwargs={"net_arch": list(h.net_arch)},
+            tensorboard_log=str(run_dir / "tb"),
+            seed=t.seed,
+            device=t.device,
+            verbose=0,
+        )
     else:
         p = exp.ppo
         model = PPO(
@@ -284,7 +324,7 @@ def train_ppo(
         )
     log(
         f"run dir: {run_dir}\n"
-        f"training PPO for {remaining:,} steps ({t.n_envs} x {t.vec_env} envs, device "
+        f"training {algo.upper()} for {remaining:,} steps ({t.n_envs} x {t.vec_env} envs, device "
         f"{model.device}, torch threads {torch.get_num_threads()})"
     )
     t0 = time.perf_counter()
@@ -293,7 +333,7 @@ def train_ppo(
             total_timesteps=remaining,
             callback=CallbackList([stats_cb, eval_cb]),
             reset_num_timesteps=resume_from is None,
-            tb_log_name="ppo",
+            tb_log_name=algo,
         )
     finally:
         wall = time.perf_counter() - t0

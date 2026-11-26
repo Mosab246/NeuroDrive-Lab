@@ -64,6 +64,10 @@ def load_controller(path: str | Path) -> Controller:
         from neurodrive.agents.ppo_agent import PPOController
 
         return PPOController.load(path)
+    if algorithm == "sac":
+        from neurodrive.agents.sac_agent import SACController
+
+        return SACController.load(path)
     if algorithm == "neat":
         from neurodrive.agents.neat_agent import NEATController
 

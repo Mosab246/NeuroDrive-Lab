@@ -81,12 +81,19 @@ def _cmd_train(args: argparse.Namespace) -> int:
         )
         return 0
 
-    from neurodrive.training.config import PPOExperiment, load_ppo_config
+    from neurodrive.training.config import (
+        PPOExperiment,
+        SACExperiment,
+        load_ppo_config,
+        load_sac_config,
+    )
     from neurodrive.training.ppo import train_ppo
 
     if args.generations is not None:
-        raise ValueError("--generations is for NEAT; PPO uses --timesteps")
-    exp = load_ppo_config(args.config) if args.config else PPOExperiment()
+        raise ValueError(f"--generations is for NEAT; {args.algorithm.upper()} uses --timesteps")
+    cls = SACExperiment if args.algorithm == "sac" else PPOExperiment
+    loader = load_sac_config if args.algorithm == "sac" else load_ppo_config
+    exp = loader(args.config) if args.config else cls()
     overrides = {
         "seed": args.seed,
         "total_timesteps": args.timesteps,
@@ -97,8 +104,7 @@ def _cmd_train(args: argparse.Namespace) -> int:
     data["training"].update({k: v for k, v in overrides.items() if v is not None})
     if args.name:
         data["name"] = args.name
-    exp = PPOExperiment.model_validate(data)
-    train_ppo(exp, runs_root=runs_dir, resume_from=args.resume)
+    train_ppo(cls.model_validate(data), runs_root=runs_dir, resume_from=args.resume)
     return 0
 
 
@@ -529,7 +535,7 @@ def _cmd_export_web(args: argparse.Namespace) -> int:
             manifest["runs"].values(), key=lambda r: (r["algorithm"] != "ppo", r["seed"])
         ):
             run = Path(r["run_dir"])
-            ext = ".zip" if r["algorithm"] == "ppo" else ".pkl"
+            ext = ".pkl" if r["algorithm"] == "neat" else ".zip"
             model = run / f"best_model_v2{ext}"
             model = model if model.is_file() else run / f"best_model{ext}"
             models.append((f"{r['algorithm'].upper()} #{r['seed'] + 1}", model))
@@ -615,7 +621,7 @@ def build_parser() -> argparse.ArgumentParser:
     ev.set_defaults(func=_cmd_evaluate)
 
     tr = sub.add_parser("train", help="train a learning agent")
-    tr.add_argument("algorithm", choices=["ppo", "neat"])
+    tr.add_argument("algorithm", choices=["ppo", "sac", "neat"])
     tr.add_argument("--config", default=None, help="experiment YAML, e.g. configs/ppo/default.yaml")
     tr.add_argument("--generations", type=int, default=None, help="NEAT: override generations")
     tr.add_argument("--seed", type=int, default=None, help="override training.seed")

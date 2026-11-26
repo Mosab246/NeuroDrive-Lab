@@ -69,6 +69,8 @@ def model_data(path: Path, label: str) -> dict[str, Any]:
 def controller_data(controller: Any, label: str) -> dict[str, Any]:
     """The weights a browser needs to run a loaded PPO or NEAT controller."""
     base: dict[str, Any] = {"label": label, "kind": controller.kind}
+    if controller.kind not in ("ppo", "neat"):
+        raise ValueError(f"the browser port supports PPO and NEAT drivers, not {controller.kind}")
     if controller.kind == "ppo":
         policy = controller.model.policy
         layers = [

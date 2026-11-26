@@ -1,4 +1,4 @@
-"""PPO experiment configuration: environment + algorithm hyperparameters + run budget."""
+"""PPO, SAC and NEAT experiment configs: environment, hyperparameters, run budget."""
 
 from __future__ import annotations
 
@@ -73,6 +73,47 @@ def load_ppo_config(path: str | Path) -> PPOExperiment:
     try:
         raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         return PPOExperiment.model_validate(raw)
+    except yaml.YAMLError as exc:
+        raise ConfigError(f"{path}: not valid YAML ({exc})") from exc
+    except ValidationError as exc:
+        details = "; ".join(
+            f"{'.'.join(str(p) for p in e['loc']) or '<root>'}: {e['msg']}" for e in exc.errors()
+        )
+        raise ConfigError(f"{path}: {details}") from exc
+
+
+class SACHyperparams(_Strict):
+    """Passed to Stable-Baselines3's SAC. Defaults equal SB3's own defaults, except
+    ``learning_starts`` (random actions first, to fill the replay buffer)."""
+
+    learning_rate: float = Field(default=3e-4, gt=0)
+    buffer_size: int = Field(default=1_000_000, ge=1)
+    learning_starts: int = Field(default=10_000, ge=0)
+    batch_size: int = Field(default=256, ge=1)
+    tau: float = Field(default=0.005, gt=0, le=1)
+    gamma: float = Field(default=0.99, gt=0, le=1)
+    train_freq: int = Field(default=1, ge=1, description="Update every N steps (per env).")
+    gradient_steps: int = Field(
+        default=1, ge=-1, description="Gradient steps per update; -1 = as many as env steps."
+    )
+    ent_coef: str = Field(default="auto", description="'auto' (learned) or a number as text.")
+    net_arch: tuple[int, ...] = Field(default=(256, 256), min_length=1)
+
+
+class SACExperiment(_Strict):
+    name: str = Field(default="sac", pattern=r"^[A-Za-z0-9_.-]+$")
+    env: EnvConfig = EnvConfig()
+    sac: SACHyperparams = SACHyperparams()
+    training: PPOTraining = PPOTraining()
+
+
+def load_sac_config(path: str | Path) -> SACExperiment:
+    path = Path(path)
+    if not path.is_file():
+        raise ConfigError(f"config file not found: {path}")
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        return SACExperiment.model_validate(raw)
     except yaml.YAMLError as exc:
         raise ConfigError(f"{path}: not valid YAML ({exc})") from exc
     except ValidationError as exc:

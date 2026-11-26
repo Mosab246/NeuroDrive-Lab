@@ -1,0 +1,36 @@
+# SAC (Soft Actor-Critic, off-policy) on the three training tracks, from random start points.
+# Same environment, validation and checkpoint rules as configs/ppo/multitrack.yaml; SB3's
+# default SAC hyperparameters (learning_starts raised to 10k random steps; with 4 envs,
+# gradient_steps -1 keeps SAC's usual one update per environment step).
+name: sac_multitrack
+
+env:
+  tracks: [beginner_oval, curved_circuit, technical_circuit]   # split: train only
+  random_start: true
+  laps_to_finish: 1
+  max_episode_seconds: 90.0
+  perturb_start: true
+
+sac:
+  learning_rate: 0.0003
+  buffer_size: 1000000
+  learning_starts: 10000
+  batch_size: 256
+  tau: 0.005
+  gamma: 0.99
+  train_freq: 1
+  gradient_steps: -1     # one gradient step per environment step (standard SAC)
+  ent_coef: auto
+  net_arch: [256, 256]
+
+training:
+  total_timesteps: 1000000
+  n_envs: 4
+  vec_env: subproc
+  seed: 0
+  device: cpu
+  torch_threads: 4
+  eval_every_steps: 50000
+  eval_episodes: 5       # per validation track
+  checkpoint_every_steps: 100000
+  validation_tracks: [validation_circuit, pval_0, pval_1, pval_2, beginner_oval, curved_circuit, technical_circuit]

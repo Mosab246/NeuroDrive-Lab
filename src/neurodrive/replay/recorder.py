@@ -22,6 +22,7 @@ from neurodrive.replay.format import FORMAT, Replay, ReplayError
 #: How each controller kind is described on screen: learned or hand-written.
 KIND_DESCRIPTION = {
     "ppo": "learned (PPO)",
+    "sac": "learned (SAC)",
     "neat": "learned (NEAT)",
     "heuristic": "scripted (sensors only)",
     "scripted (privileged)": "scripted (privileged)",
@@ -35,7 +36,7 @@ def describe_kind(kind: str) -> str:
 
 
 def is_learned(kind: str) -> bool:
-    return kind in ("ppo", "neat")
+    return kind in ("ppo", "sac", "neat")
 
 
 def network_info(controller: Controller) -> tuple[dict[str, Any] | None, bytes | None]:
@@ -76,6 +77,18 @@ def network_info(controller: Controller) -> tuple[dict[str, Any] | None, bytes |
             "outputs": int(policy.action_net.out_features),
             "activation": policy.activation_fn.__name__,
             "parameters": int(actor),
+        }
+        return info, None
+    if controller.kind == "sac":
+        actor = controller.model.policy.actor  # type: ignore[attr-defined]
+        hidden = [int(m.out_features) for m in actor.latent_pi if hasattr(m, "out_features")]
+        info = {
+            "type": "mlp",
+            "inputs": int(actor.observation_space.shape[0]),
+            "hidden": hidden,
+            "outputs": int(actor.mu.out_features),
+            "activation": "ReLU",
+            "parameters": int(sum(p.numel() for p in actor.parameters())),
         }
         return info, None
     return None, None
