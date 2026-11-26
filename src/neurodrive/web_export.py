@@ -70,14 +70,14 @@ def controller_data(controller: Any, label: str) -> dict[str, Any]:
     """The weights a browser needs to run a loaded PPO or NEAT controller."""
     base: dict[str, Any] = {"label": label, "kind": controller.kind}
     if controller.kind == "ppo":
-        policy = controller.model.policy  # type: ignore[attr-defined]
+        policy = controller.model.policy
         layers = [
             {"w": m.weight.detach().double().tolist(), "b": m.bias.detach().double().tolist()}
             for m in [*list(policy.mlp_extractor.policy_net), policy.action_net]
             if hasattr(m, "weight")
         ]
         return base | {"layers": layers, "activation": policy.activation_fn.__name__}
-    net = controller.net  # type: ignore[attr-defined]
+    net = controller.net
     evals = [
         {"node": node, "bias": bias, "response": response, "links": [[i, w] for i, w in links]}
         for node, _act, _agg, bias, response, links in net.node_evals
