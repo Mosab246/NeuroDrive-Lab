@@ -14,6 +14,7 @@ Controls:
     V                   show/hide the focused car's sensor rays
     N                   show/hide the focused car's network
     T                   show/hide trails
+    E                   show/hide skid marks and tyre smoke
     click the bar       jump to that moment
     Esc                 quit
 """
@@ -30,6 +31,7 @@ import pygame
 from neurodrive.replay.format import Replay, ReplayError
 from neurodrive.sim.track import load_any_track
 from neurodrive.sim.vehicle import VehicleParams, VehicleState, body_corners
+from neurodrive.ui import art
 from neurodrive.ui import renderer as R
 from neurodrive.ui.app import _enable_dpi_awareness, _fmt_time
 from neurodrive.ui.clock import SPEEDS
@@ -64,6 +66,10 @@ class _Car:
         # A race's result is its total time (several laps, from the grid).
         self.lap_time = replay.meta.get("finish_time") or (times[0] if times else None)
         self.network_surface: pygame.Surface | None = None
+        self.skid, self.wheels = art.skid_profile(
+            replay.x, replay.y, replay.heading, replay.speed, replay.dt
+        )
+        self.skid_runs = art.skid_runs(self.skid)
 
     def corners(self, i: int) -> np.ndarray:
         r = self.r
@@ -129,6 +135,7 @@ class ReplayViewer:
         self.show_rays = True
         self.show_network = False
         self.show_trails = True
+        self.show_effects = True  # skid marks and tyre smoke (E)
         self.frame_dt = frame_dt
         self.fps = fps
         self.measured_fps = 0.0
@@ -205,6 +212,8 @@ class ReplayViewer:
             self.show_network = not self.show_network
         elif key == pygame.K_t:
             self.show_trails = not self.show_trails
+        elif key == pygame.K_e:
+            self.show_effects = not self.show_effects
 
     # ------------------------------------------------------------------ drawing
     def _camera(self) -> R.Camera:
@@ -236,13 +245,48 @@ class ReplayViewer:
         self.screen.set_clip(self.track_view.viewport)
         self._labels: list[pygame.Rect] = []
         order = [self.focus] + [k for k in range(len(self.cars)) if k != self.focus]
+        for car in self.cars:  # marks on the asphalt first, under every car
+            self._draw_skids(car, camera)
         for k in order:
             self._draw_car(k, camera)
+        for car in self.cars:  # smoke above the cars
+            self._draw_smoke(car, camera)
         self.screen.set_clip(clip)
         if self.show_network:
             self._draw_network()
         self._draw_panel()
         self._draw_bar()
+
+    def _draw_skids(self, car: _Car, camera: R.Camera) -> None:
+        if not self.show_effects:
+            return
+        i = car.r.index_at(self.t)
+        width = max(1, round(0.25 * camera.scale))
+        for start, end in car.skid_runs:
+            if start >= i:
+                break
+            stop = min(end, i + 1)
+            if stop - start < 2:
+                continue
+            for w in range(2):
+                pts = camera.to_screen(car.wheels[start:stop, w])
+                pygame.draw.lines(self.screen, art.SKID_COLOR, False, pts.tolist(), width)
+
+    SMOKE_STEPS = 20  # how long a puff lingers (steps)
+
+    def _draw_smoke(self, car: _Car, camera: R.Camera) -> None:
+        if not self.show_effects or camera.scale < 3.0:
+            return
+        i = car.r.index_at(self.t)
+        for j in range(max(0, i - self.SMOKE_STEPS), i + 1, 2):
+            if not car.skid[j]:
+                continue
+            age = (i - j) / self.SMOKE_STEPS
+            puff = art.smoke_puff(round((0.8 + 2.2 * age) * camera.scale))
+            puff.set_alpha(int(255 * (1 - age)))
+            for w in range(2):
+                p = camera.to_screen(car.wheels[j, w])[0]
+                self.screen.blit(puff, puff.get_rect(center=(round(p[0]), round(p[1]))))
 
     def _draw_car(self, k: int, camera: R.Camera) -> None:
         car = self.cars[k]
@@ -262,12 +306,14 @@ class ReplayViewer:
                 if d < max_range:
                     pygame.draw.circle(self.screen, R.RAY_HIT, end, 3)
         corners = camera.to_screen(car.corners(i))
+        if not self.track_view.viewport.inflate(80, 80).collidepoint(*corners.mean(axis=0)):
+            return  # off screen (follow camera): draw nothing, not even the label
         crashed = car.finished(i) and car.end == "collision"
         color = R.CAR_CRASHED if crashed else car.color
-        pygame.draw.polygon(self.screen, color, corners.tolist())
-        front = (corners[0] * 0.7 + corners[3] * 0.3, corners[1] * 0.7 + corners[2] * 0.3)
-        pygame.draw.line(self.screen, R.PANEL, front[0], front[1], 2)
         center = corners.mean(axis=0)
+        p = car.params
+        heading = float(car.r.heading[i])
+        art.blit_car(self.screen, center, heading, color, k + 1, camera.scale, p.length, p.width)
         if camera.scale < 6.0:
             pygame.draw.circle(
                 self.screen, color, center, 13 if focused else 10, 2 if focused else 1

@@ -11,10 +11,11 @@ from neurodrive.sim import geometry as geo
 from neurodrive.sim.sensors import RayHits
 from neurodrive.sim.simulation import Simulation, Termination
 from neurodrive.sim.track import Track
+from neurodrive.ui import art
 
 # Palette: dark "lab" background, muted asphalt, high-contrast car.
-GRASS = (22, 30, 28)
-ASPHALT = (58, 62, 70)
+GRASS = art.GRASS
+ASPHALT = art.ASPHALT
 EDGE = (210, 214, 222)
 CHECKPOINT = (95, 130, 160)
 FINISH = (245, 245, 245)
@@ -66,7 +67,7 @@ class _TrackLayer:
         self.top_left_world = np.array([lo[0], hi[1]])
         size = ((hi - lo) * scale + 2 * pad).astype(int)
         self.surface = pygame.Surface((int(size[0]), int(size[1])))
-        self.surface.fill(GRASS)
+        self.surface.fill(art.GRASS)
 
         def px(p: np.ndarray) -> np.ndarray:
             p = np.atleast_2d(p)
@@ -79,18 +80,20 @@ class _TrackLayer:
         left_area = abs(geo.signed_polygon_area(track.left_edge))
         right_area = abs(geo.signed_polygon_area(track.right_edge))
         outer, inner = (left, right) if left_area > right_area else (right, left)
-        pygame.draw.polygon(self.surface, ASPHALT, outer.tolist())
-        pygame.draw.polygon(self.surface, GRASS, inner.tolist())
-        width = max(1, round(scale * 0.25))
-        for k, s in enumerate(track.checkpoint_s):
+        pygame.draw.polygon(self.surface, art.ASPHALT, outer.tolist())
+        pygame.draw.polygon(self.surface, art.GRASS, inner.tolist())
+        art.texture_layer(self.surface, scale)
+        width = max(1, round(scale * 0.15))
+        for s in track.checkpoint_s[:-1]:  # faint marks; the finish line is drawn below
             i = int(np.searchsorted(track.cum_s, s % track.length, side="right") - 1)
             i %= track.num_points
             a, b = px(track.left_edge[i])[0], px(track.right_edge[i])[0]
-            last = k == len(track.checkpoint_s) - 1
-            color = FINISH if last else CHECKPOINT
-            pygame.draw.line(self.surface, color, a, b, 4 * width if last else width)
-        pygame.draw.aalines(self.surface, EDGE, True, left.tolist())
-        pygame.draw.aalines(self.surface, EDGE, True, right.tolist())
+            pygame.draw.line(self.surface, art.CHECKPOINT_MARK, a, b, width)
+        art.draw_kerbs(self.surface, track, px)
+        art.draw_finish_line(self.surface, track, px)
+        line_w = max(1, round(scale * 0.25))
+        pygame.draw.lines(self.surface, art.EDGE_LINE, True, left.tolist(), line_w)
+        pygame.draw.lines(self.surface, art.EDGE_LINE, True, right.tolist(), line_w)
 
     def blit(self, screen: pygame.Surface, camera: Camera) -> None:
         origin = camera.to_screen(self.top_left_world)[0] - self.pad
@@ -106,9 +109,11 @@ class TrackRenderer:
         self.fit = fit_camera(track, viewport)
         lo, hi = track_bounds(track)
         follow_scale = min(FOLLOW_SCALE, MAX_LAYER_PIXELS / float(max(hi - lo)))
-        self._layers = {
-            "fit": _TrackLayer(track, self.fit.scale),
-            "follow": _TrackLayer(track, follow_scale),
+        # The big follow-camera layer is built on first use (it takes a moment).
+        # Pad the whole-track layer so its grass covers the entire viewport.
+        fit_pad = max(viewport.width, viewport.height)
+        self._layers: dict[str, _TrackLayer] = {
+            "fit": _TrackLayer(track, self.fit.scale, pad=fit_pad)
         }
         self.follow_scale = follow_scale
 
@@ -119,7 +124,11 @@ class TrackRenderer:
         return Camera(self.follow_scale, center, self.viewport.center)
 
     def draw(self, screen: pygame.Surface, camera: Camera) -> None:
-        layer = self._layers["fit" if camera is self.fit else "follow"]
+        key = "fit" if camera is self.fit else "follow"
+        if key not in self._layers:
+            pad = max(self.viewport.width, self.viewport.height) // 2 + 40
+            self._layers[key] = _TrackLayer(self.track, self.follow_scale, pad=pad)
+        layer = self._layers[key]
         previous_clip = screen.get_clip()
         screen.set_clip(self.viewport)
         screen.fill(GRASS, self.viewport)
@@ -145,10 +154,12 @@ class CarRenderer:
             pygame.draw.aalines(screen, TRAIL, False, pts.tolist())
         corners = camera.to_screen(sim.corners())
         crashed = sim.termination is Termination.COLLISION
-        pygame.draw.polygon(screen, CAR_CRASHED if crashed else CAR, corners.tolist())
-        # Windscreen marker near the front edge so the heading is obvious at a glance.
-        front = (corners[0] * 0.7 + corners[3] * 0.3, corners[1] * 0.7 + corners[2] * 0.3)
-        pygame.draw.line(screen, PANEL, front[0], front[1], 2)
+        p = sim.params
+        color = CAR_CRASHED if crashed else CAR
+        center = corners.mean(axis=0)
+        art.blit_car(
+            screen, center, sim.state.heading, color, None, camera.scale, p.length, p.width
+        )
         if camera.scale < 6.0:
             # At whole-track zoom the car is only a few pixels long: ring it.
             center = corners.mean(axis=0)
