@@ -17,6 +17,7 @@ from typing import Any
 
 import numpy as np
 
+from neurodrive.env.config import EnvConfig
 from neurodrive.experiments.metadata import git_commit
 from neurodrive.replay.format import FORMAT, Replay, ReplayError
 from neurodrive.replay.lab import Entry
@@ -32,6 +33,22 @@ from neurodrive.sim.race import RaceWorld
 OUTCOME_TO_ENDING = {"finished": "lap_complete"}
 
 
+def race_physics(entries: list[Entry]) -> str:
+    """Every car in a race must use the same vehicle model. Learned drivers bring their own
+    (from training); scripted drivers then use the same one."""
+    models = {
+        EnvConfig.model_validate(meta["env_config"]).physics.model
+        for _, _, meta, _ in entries
+        if meta
+    }
+    if len(models) > 1:
+        raise ReplayError(
+            f"these drivers were trained with different physics ({', '.join(sorted(models))}); "
+            "race drivers of one physics model at a time"
+        )
+    return models.pop() if models else "kinematic"
+
+
 def record_race(
     entries: list[Entry],
     track: str,
@@ -42,9 +59,10 @@ def record_race(
 ) -> list[Replay]:
     if not entries:
         raise ReplayError("nothing to race")
+    physics = race_physics(entries)
     envs, controllers = [], []
     for _label, make, model_meta, _ in entries:
-        env = env_for(model_meta, track, laps, max_seconds or 45.0 * laps + 30.0)
+        env = env_for(model_meta, track, laps, max_seconds or 45.0 * laps + 30.0, physics)
         env.reset(seed=0, options={"track": track, "perturb": False, "random_start": False})
         controllers.append(make(env))
         envs.append(env)

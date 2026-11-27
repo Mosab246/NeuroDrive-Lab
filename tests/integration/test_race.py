@@ -177,3 +177,26 @@ def test_aware_autopilot_follows_a_slow_car_without_hitting_it(oval):
             ]
         )
     assert world.status[1].contacts == 0
+
+
+def test_race_physics_is_shared_by_scripted_drivers():
+    import pytest as _pytest
+
+    from neurodrive.env.config import EnvConfig
+    from neurodrive.replay.format import ReplayError
+    from neurodrive.replay.race import race_physics
+    from neurodrive.replay.recorder import env_for
+
+    def meta(model):
+        cfg = EnvConfig.model_validate({"physics": {"model": model}})
+        return {"env_config": cfg.model_dump(mode="json")}
+
+    scripted = ("autopilot", None, None, "")
+    dyn = ("a", None, meta("dynamic"), "a.zip")
+    kin = ("b", None, meta("kinematic"), "b.zip")
+    assert race_physics([scripted]) == "kinematic"
+    assert race_physics([dyn, scripted]) == "dynamic"
+    with _pytest.raises(ReplayError, match="different physics"):
+        race_physics([dyn, kin])
+    env = env_for(None, "beginner_oval", physics="dynamic")
+    assert env.config.physics.model == "dynamic"

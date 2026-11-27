@@ -200,10 +200,16 @@ def env_for(
     track: str,
     laps: int | None = None,
     max_seconds: float | None = None,
+    physics: str | None = None,
 ) -> DrivingEnv:
     """The environment a controller should be recorded in: the model's own environment
-    config (sensors, observation) if it has one, on the requested track."""
+    config (sensors, observation) if it has one, on the requested track. ``physics`` sets the
+    vehicle model for drivers without a model of their own (scripted drivers in a race)."""
     base = EnvConfig.model_validate(meta["env_config"]) if meta else EnvConfig()
+    if physics is not None and not meta:
+        base = base.model_copy(
+            update={"physics": base.physics.model_copy(update={"model": physics})}
+        )
     update: dict[str, Any] = {"tracks": (track,), "track": track}
     if laps is not None:
         update["laps_to_finish"] = laps
