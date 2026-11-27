@@ -5,7 +5,7 @@
 **A 2D driving simulator where cars teach themselves to drive and race, built as a
 controlled experiment: reinforcement learning (PPO, SAC) vs. neuroevolution (NEAT).**
 
-![tests](https://img.shields.io/badge/tests-255%20passing-brightgreen)
+[![tests](https://github.com/Mosab246/NeuroDrive-Lab/actions/workflows/ci.yml/badge.svg)](https://github.com/Mosab246/NeuroDrive-Lab/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -51,7 +51,7 @@ confidence intervals, multi-car racing with self-play, and a broadcast-style rep
 | **Agent outputs** | Steering and throttle/brake, continuous in [-1, 1] |
 | **Tracks** | 6 hand-built (train / validation / test, both directions) + unlimited procedural |
 | **Evaluation** | 26 tracks x 20 fixed scenarios with random starts, 3 seeds per algorithm |
-| **Quality** | 255 automated tests (pytest, ruff, mypy), fully reproducible runs |
+| **Quality** | 255 automated tests (pytest, ruff, mypy), CI on Windows and Linux, fully reproducible runs |
 
 ## Key results
 
@@ -348,7 +348,7 @@ docs/           design, physics, ML guide, results, phase reports
 ## Tech stack
 
 Python · NumPy · Gymnasium · Stable-Baselines3 · PyTorch · neat-python · pygame-ce ·
-pydantic · matplotlib · TensorBoard · pytest · ruff · mypy · uv
+pydantic · matplotlib · TensorBoard · pytest · ruff · mypy · uv · GitHub Actions
 
 ## License
 
