@@ -1,0 +1,12 @@
+# Environment with the dynamic tyre-slip vehicle model (hard physics), for scripted drivers:
+# `neurodrive evaluate --controller autopilot --config configs/env/dynamic.yaml ...`.
+# Same episode rules as configs/ppo/dynamic.yaml.
+tracks: [beginner_oval, curved_circuit, technical_circuit]
+random_start: true
+laps_to_finish: 1
+max_episode_seconds: 90.0
+perturb_start: true
+physics:
+  model: dynamic
+observation:
+  motion_features: true

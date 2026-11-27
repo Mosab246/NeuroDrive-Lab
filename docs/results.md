@@ -3,6 +3,25 @@
 Only numbers that were actually measured go here, each with the exact command, the
 machine, and the date.
 
+## Racing with hard physics (Phase 14)
+
+**Setup:** 2026-11-27, i9-13900HX laptop, CPU only. Hard-physics benchmark models (3M steps,
+trained alone, `best_model_v2`). Full write-up: [phases/phase-14.md](phases/phase-14.md).
+
+**Traffic** (22 test tracks x 20 scenarios; `evaluate --traffic 0|3`, hard physics for all):
+
+| Driver | Alone | With 3 opponents |
+|---|---|---|
+| PPO (3 seeds) | 85.1%, 28.35 s | 62.8%, 31.49 s |
+| NEAT (3 seeds) | 99.9%, 43.02 s | 69.1%, 46.80 s |
+| Autopilot (scripted) | 100%, 38.36 s | 100%, 47.73 s |
+| Heuristic (scripted) | 26.8%, 32.69 s | 46.4%, 44.30 s |
+
+[summary.csv](../results/hard_racing/summary.csv).
+
+**8-car Grand Prix** (12 races, 2 laps): NEAT #3 194, autopilot 183, NEAT #1 141, PPO #1 104,
+PPO #3 68, heuristic 43, PPO #2 40, NEAT #2 0. [Standings](../results/grand_prix/phase14/standings.md).
+
 ## SAC, a third algorithm (Phase 13)
 
 **Setup:** 2026-11-26 to 2026-11-27, i9-13900HX laptop, CPU only; the three SAC seeds trained

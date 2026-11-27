@@ -5,7 +5,7 @@
 **A 2D driving simulator where cars learn to drive by themselves, built as a controlled
 experiment comparing reinforcement learning (PPO) with neuroevolution (NEAT).**
 
-![tests](https://img.shields.io/badge/tests-254%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-255%20passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -37,7 +37,7 @@ a replay viewer to see what the numbers mean.
 | **Agent outputs** | Steering and throttle/brake, continuous in [-1, 1] |
 | **Tracks** | 6 hand-built (train / validation / test, both directions) + unlimited procedural |
 | **Evaluation** | 26 tracks x 20 fixed scenarios with random starts, 3 seeds per algorithm |
-| **Quality** | 254 automated tests (pytest, ruff, mypy), fully reproducible runs |
+| **Quality** | 255 automated tests (pytest, ruff, mypy), fully reproducible runs |
 
 ## Key results
 
@@ -112,6 +112,10 @@ With tyres that can slip (understeer, oversteer, spins), 3M steps, 3 seeds:
 
 Hand-written rules that work on the easy physics fail 70% of the time here; both learned
 agents adapt. [Report](results/benchmark/ppo_vs_neat_dynamic_3m/report.md).
+
+**Racing on slippery tyres is much harder.** The same hard-physics drivers (trained alone)
+with 3 cars on track: PPO falls from 85% to 63% of laps, NEAT from 99.9% to 69% (one seed to
+24%), while the scripted autopilot still laps 100%. [Report](docs/phases/phase-14.md).
 
 <p align="center">
   <img src="docs/images/demo-drift.gif" width="60%" alt="A PPO car sliding through a corner, leaving skid marks and tyre smoke">

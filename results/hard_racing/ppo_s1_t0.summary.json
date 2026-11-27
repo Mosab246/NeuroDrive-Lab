@@ -1,0 +1,316 @@
+{
+  "summary": {
+    "controller": "ppo reselected@2500000",
+    "controller_kind": "ppo",
+    "track": "unseen_a",
+    "episodes": 440,
+    "completed": 341,
+    "completion_rate": 0.775,
+    "completion_rate_ci95": [
+      0.733697546556841,
+      0.811542016386335
+    ],
+    "collision_rate": 0.225,
+    "termination_reasons": {
+      "lap_complete": 341,
+      "collision": 99
+    },
+    "lap_time_mean": 28.231720430107526,
+    "lap_time_std": 2.0813798304814473,
+    "lap_time_best": 23.766666666666666,
+    "lap_time_n": 341,
+    "mean_lap_fraction": 0.8955119386378694,
+    "mean_episode_steps": 773.5795454545455,
+    "mean_speed": 18.76870206720499,
+    "mean_return": 55.26386854192485,
+    "mean_contacts": 0.0
+  },
+  "metadata": {
+    "created_utc": "2026-11-27T09:03:37+00:00",
+    "command": "D:\\Projects\\NeuroDrive-Lab\\src\\neurodrive\\__main__.py evaluate --model D:/Projects/NeuroDrive-Lab/runs/benchmark/ppo_vs_neat_dynamic_3m/runs/ppo/ppo_vs_neat_dynamic_3m_ppo_seed1_20261125-184030/best_model_v2.zip --traffic 0 --tracks split:test,proc:20 --start random --split test --episodes 20 --out runs/eval/phase14/ppo_s1_t0",
+    "git_commit": "7fbf3c6c67155954271c4edcd1e3287a548b72fb-dirty",
+    "python": "3.12.13",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "packages": {
+      "neurodrive-lab": "0.1.0",
+      "numpy": "2.5.5",
+      "gymnasium": "1.4.0",
+      "stable-baselines3": "2.9.2",
+      "torch": "2.15.0+cpu",
+      "pygame-ce": "2.5.8"
+    },
+    "env_config": {
+      "track": "beginner_oval",
+      "tracks": [
+        "beginner_oval",
+        "curved_circuit",
+        "technical_circuit"
+      ],
+      "random_start": true,
+      "laps_to_finish": 1,
+      "max_episode_seconds": 90.0,
+      "perturb_start": true,
+      "physics": {
+        "model": "dynamic",
+        "tire_friction": 1.1
+      },
+      "traffic": {
+        "cars": 0,
+        "speed_range": [
+          0.35,
+          0.8
+        ],
+        "gap_range": [
+          12.0,
+          30.0
+        ],
+        "learned_opponents": [],
+        "learned_share": 1.0
+      },
+      "sensors": {
+        "angles_deg": [
+          -90.0,
+          -60.0,
+          -40.0,
+          -20.0,
+          0.0,
+          20.0,
+          40.0,
+          60.0,
+          90.0
+        ],
+        "max_range": 50.0
+      },
+      "observation": {
+        "route_features": false,
+        "motion_features": true
+      },
+      "reward": {
+        "progress_per_meter": 0.1,
+        "lap_bonus": 10.0,
+        "crash_penalty": 10.0,
+        "stall_penalty": 10.0,
+        "contact_penalty": 1.0,
+        "stall_seconds": 5.0,
+        "stall_min_progress": 2.0
+      }
+    },
+    "observation": {
+      "version": "obs-v1+motion",
+      "names": [
+        "ray_-90",
+        "ray_-60",
+        "ray_-40",
+        "ray_-20",
+        "ray_+0",
+        "ray_+20",
+        "ray_+40",
+        "ray_+60",
+        "ray_+90",
+        "speed",
+        "steer",
+        "lateral_speed",
+        "yaw_rate"
+      ],
+      "low": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -1.0,
+        -1.0,
+        -1.0
+      ],
+      "high": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "privileged": []
+    },
+    "split": "test",
+    "tracks": [
+      "unseen_a",
+      "unseen_b",
+      "proc_0",
+      "proc_1",
+      "proc_2",
+      "proc_3",
+      "proc_4",
+      "proc_5",
+      "proc_6",
+      "proc_7",
+      "proc_8",
+      "proc_9",
+      "proc_10",
+      "proc_11",
+      "proc_12",
+      "proc_13",
+      "proc_14",
+      "proc_15",
+      "proc_16",
+      "proc_17",
+      "proc_18",
+      "proc_19"
+    ],
+    "random_start": true,
+    "scenario_seeds": [
+      2000000,
+      2000019
+    ],
+    "controller_seed": 0,
+    "model": "D:/Projects/NeuroDrive-Lab/runs/benchmark/ppo_vs_neat_dynamic_3m/runs/ppo/ppo_vs_neat_dynamic_3m_ppo_seed1_20261125-184030/best_model_v2.zip",
+    "model_meta": {
+      "algorithm": "ppo",
+      "label": "reselected@2500000",
+      "timesteps": 2500000,
+      "seed": 1,
+      "experiment": "ppo_vs_neat_dynamic_3m_ppo",
+      "observation": {
+        "version": "obs-v1+motion",
+        "names": [
+          "ray_-90",
+          "ray_-60",
+          "ray_-40",
+          "ray_-20",
+          "ray_+0",
+          "ray_+20",
+          "ray_+40",
+          "ray_+60",
+          "ray_+90",
+          "speed",
+          "steer",
+          "lateral_speed",
+          "yaw_rate"
+        ],
+        "low": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          -1.0,
+          -1.0,
+          -1.0
+        ],
+        "high": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "privileged": []
+      },
+      "env_config": {
+        "track": "beginner_oval",
+        "tracks": [
+          "beginner_oval",
+          "curved_circuit",
+          "technical_circuit"
+        ],
+        "random_start": true,
+        "laps_to_finish": 1,
+        "max_episode_seconds": 90.0,
+        "perturb_start": true,
+        "physics": {
+          "model": "dynamic",
+          "tire_friction": 1.1
+        },
+        "sensors": {
+          "angles_deg": [
+            -90.0,
+            -60.0,
+            -40.0,
+            -20.0,
+            0.0,
+            20.0,
+            40.0,
+            60.0,
+            90.0
+          ],
+          "max_range": 50.0
+        },
+        "observation": {
+          "route_features": false,
+          "motion_features": true
+        },
+        "reward": {
+          "progress_per_meter": 0.1,
+          "lap_bonus": 10.0,
+          "crash_penalty": 10.0,
+          "stall_penalty": 10.0,
+          "stall_seconds": 5.0,
+          "stall_min_progress": 2.0
+        }
+      },
+      "ppo": {
+        "learning_rate": 0.0003,
+        "n_steps": 2048,
+        "batch_size": 64,
+        "n_epochs": 10,
+        "gamma": 0.99,
+        "gae_lambda": 0.95,
+        "clip_range": 0.2,
+        "ent_coef": 0.0,
+        "vf_coef": 0.5,
+        "max_grad_norm": 0.5,
+        "net_arch": [
+          64,
+          64
+        ],
+        "log_std_init": 0.0
+      },
+      "reselected_from": "step_02500000.zip",
+      "reselection": {
+        "tracks": [
+          "validation_circuit",
+          "pval_0",
+          "pval_1",
+          "pval_2",
+          "beginner_oval",
+          "curved_circuit",
+          "technical_circuit"
+        ],
+        "episodes_per_track": 5,
+        "steps": 2500000,
+        "checkpoint": "D:\\Projects\\NeuroDrive-Lab\\runs\\benchmark\\ppo_vs_neat_dynamic_3m\\runs\\ppo\\ppo_vs_neat_dynamic_3m_ppo_seed1_20261125-184030\\checkpoints\\step_02500000.zip",
+        "completion_rate": 0.8571428571428571,
+        "worst_track_completion": 0.0,
+        "mean_lap_fraction": 0.9132084434631701,
+        "lap_time_mean": 28.486666666666665,
+        "collision_rate": 0.14285714285714285
+      }
+    }
+  }
+}
