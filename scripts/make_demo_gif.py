@@ -1,6 +1,7 @@
 """Render the README demo GIF: a ghost race, drawn off-screen by the real replay viewer.
 
     uv run python scripts/make_demo_gif.py [--benchmark runs/benchmark/ppo_vs_neat_1m]
+    uv run python scripts/make_demo_gif.py --real --driver "PPO=model.zip" --driver autopilot ...
 
 Needs a finished benchmark (for the trained models); writes docs/images/demo-ghost-race.gif.
 """
@@ -16,7 +17,7 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 import pygame
 from PIL import Image
 
-from neurodrive.replay.lab import baseline_entry, benchmark_entries
+from neurodrive.replay.lab import baseline_entry, benchmark_entries, driver_entry
 from neurodrive.replay.race import record_race
 from neurodrive.replay.recorder import record_many
 from neurodrive.ui import art
@@ -47,6 +48,9 @@ def _palette(sample: Image.Image) -> Image.Image:
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--benchmark", default="runs/benchmark/ppo_vs_neat_1m")
+    p.add_argument(
+        "--driver", action="append", help="instead of --benchmark: model, baseline or LABEL=either"
+    )
     p.add_argument("--track", default="unseen_a")
     p.add_argument("--out", default="docs/images/demo-ghost-race.gif")
     p.add_argument("--speed", type=float, default=2.0, help="playback speed")
@@ -62,8 +66,10 @@ def main() -> None:
     p.add_argument("--crop", action="store_true", help="track view only (no side panel)")
     args = p.parse_args()
 
-    entries = benchmark_entries(args.benchmark)
-    if not args.no_baselines:
+    entries = (
+        [driver_entry(d) for d in args.driver] if args.driver else benchmark_entries(args.benchmark)
+    )
+    if not args.no_baselines and not args.driver:
         entries += [baseline_entry("heuristic"), baseline_entry("autopilot")]
     if args.real:
         replays = record_race(entries, args.track, laps=args.laps, with_network=False)

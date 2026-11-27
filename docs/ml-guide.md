@@ -264,6 +264,28 @@ uses far more environment steps than PPO, but each step is cheap (no gradient
 calculations) and networks are scored in parallel on 12 processes. That's why the
 comparison (Phase 6) reports both environment steps and wall-clock time.
 
+## SAC: learning from replayed experience (Phase 13)
+
+PPO is **on-policy**: it learns only from the episodes its current policy just drove, then
+throws them away. SAC (Soft Actor-Critic) is **off-policy**: every step it ever took goes
+into a *replay buffer* (up to a million), and each update trains on a random batch from it,
+so old experience keeps teaching.
+
+- **Two kinds of network.** The *actor* chooses the action, like PPO's policy. Two *critics*
+  learn how good an action is in a situation (the expected future reward), and the actor is
+  pushed towards actions the critics rate highly. Using the smaller of two critics avoids
+  over-optimistic estimates.
+- **"Soft": rewarded for staying random.** SAC adds a bonus for keeping its actions varied
+  (entropy), tuned automatically. That keeps it exploring instead of locking into the first
+  thing that works.
+- **The trade-off.** Reusing experience makes SAC sample-efficient: here it lapped after
+  ~100k environment steps, where PPO needed ~280k. But it does one gradient update per
+  environment step, so on a CPU it is about 10x slower per step than PPO. Which algorithm is
+  "faster" depends on whether you count environment steps or wall-clock time.
+
+When judged, SAC (like PPO) drives with its mean action, no randomness:
+`deterministic=True`.
+
 ## Generalization and overfitting (Phase 5)
 
 An agent can score perfectly on the track it trained on and still not know how to drive.
