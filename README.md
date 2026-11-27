@@ -327,7 +327,7 @@ docs/           design, physics, ML guide, results, phase reports
 
 | Document | Contents |
 |---|---|
-| [ML guide](docs/ml-guide.md) | Observations, actions, reward design, PPO and NEAT explained, overfitting, fair comparison |
+| [ML guide](docs/ml-guide.md) | Observations, actions, reward design, PPO, SAC and NEAT explained, overfitting, fair comparison |
 | [Physics](docs/physics.md) | Vehicle models, tracks, collision, lap counting, races |
 | [Results](docs/results.md) | Every measured number, with commands, dates and hardware |
 | [Training guide](docs/training-guide.md) | Training, monitoring, resuming, evaluating |
