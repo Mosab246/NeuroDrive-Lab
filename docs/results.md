@@ -3,6 +3,19 @@
 Only numbers that were actually measured go here, each with the exact command, the
 machine, and the date.
 
+## SAC, a third algorithm (Phase 13)
+
+**Setup:** 2026-11-26 to 2026-11-27, i9-13900HX laptop, CPU only; the three SAC seeds trained
+at the same time (29.9-30.2 steps/s each; ~9.3 h per run). Full write-up:
+[phases/phase-13.md](phases/phase-13.md).
+
+**SAC at 1M steps** (`train sac --config configs/sac/multitrack.yaml --seed S --timesteps 1000000`,
+then `benchmark run --config configs/benchmark/sac_1m.yaml`; 26 tracks x 20 test scenarios):
+1526/1560 laps (97.8% ± 1.4 across seeds; 95% CI 97.0-98.4%), 22.50 s ± 0.63, 1.5%
+collisions; first validation lap after 100k steps on average (50k for two seeds). Same
+benchmark, re-selected on the same 7 tracks: PPO 97.6% ± 4.1, 22.40 s; NEAT 98.8% ± 2.0,
+24.21 s. [Report](../results/benchmark/sac_1m/report.md).
+
 ## Self-play racing and PPO tuning (Phase 12)
 
 **Setup:** 2026-11-26, i9-13900HX laptop, CPU only; up to three jobs shared the CPU.

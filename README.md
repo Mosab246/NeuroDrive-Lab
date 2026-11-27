@@ -5,7 +5,7 @@
 **A 2D driving simulator where cars learn to drive by themselves, built as a controlled
 experiment comparing reinforcement learning (PPO) with neuroevolution (NEAT).**
 
-![tests](https://img.shields.io/badge/tests-251%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-254%20passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -32,12 +32,12 @@ a replay viewer to see what the numbers mean.
 
 | | |
 |---|---|
-| **Algorithms** | PPO (Stable-Baselines3), NEAT (neat-python) |
+| **Algorithms** | PPO and SAC (Stable-Baselines3), NEAT (neat-python) |
 | **Agent inputs** | 9 distance rays, speed, steering angle (no map, no track knowledge) |
 | **Agent outputs** | Steering and throttle/brake, continuous in [-1, 1] |
 | **Tracks** | 6 hand-built (train / validation / test, both directions) + unlimited procedural |
 | **Evaluation** | 26 tracks x 20 fixed scenarios with random starts, 3 seeds per algorithm |
-| **Quality** | 251 automated tests (pytest, ruff, mypy), fully reproducible runs |
+| **Quality** | 254 automated tests (pytest, ruff, mypy), fully reproducible runs |
 
 ## Key results
 
@@ -73,6 +73,20 @@ scripted autopilot 28.02 s, sensor heuristic 29.56 s (both 100%). Reports:
   92.6% to **97.6%** of laps at 1M and from 87.8% to **96.9%** at 5M; NEAT stayed at
   98.8% / 100%. Reports: [1M](results/benchmark/ppo_vs_neat_1m/reselection.md),
   [5M](results/benchmark/ppo_vs_neat_5m/reselection.md).
+
+**A third algorithm: SAC.** Soft Actor-Critic, an off-policy learner, under the same rules
+(1M steps, 3 seeds, same tests; all three with checkpoints picked on 7 validation tracks):
+
+| At 1M steps | PPO | SAC | NEAT |
+|---|---|---|---|
+| Laps completed | 97.6% ± 4.1 | 97.8% ± 1.4 | **98.8% ± 2.0** |
+| Mean lap time | **22.40 s** | 22.50 s | 24.21 s |
+| Steps to first validation lap | 283k | **100k** | 133k |
+| Training time per run (CPU) | ~30 min | ~4-9 h | **~2 min** |
+
+SAC learns from the fewest steps, laps as fast as PPO and varies least between seeds, but
+costs about 10x PPO's compute per step. [Report](results/benchmark/sac_1m/report.md),
+[write-up](docs/phases/phase-13.md).
 
 ### 2. Training on one track overfits, in a very specific way
 
@@ -160,7 +174,7 @@ All numbers come from logged runs with the exact commands, dates and hardware in
 **Learning**
 - Gymnasium environment (`NeuroDrive-v0`) passing the Gymnasium and SB3 environment checkers
 - Reward designed against known exploits; `terminated` vs. `truncated` handled correctly
-- PPO and NEAT pipelines with seeds, checkpoints, resume, TensorBoard / statistics, and
+- PPO, SAC and NEAT pipelines with seeds, checkpoints, resume, TensorBoard / statistics, and
   checkpoint selection on separate validation tracks; validation-only hyperparameter
   search for PPO (`tune ppo`)
 - Train / validation / test track splits **enforced in code**
